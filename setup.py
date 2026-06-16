@@ -13,16 +13,16 @@ REQUIRED_PACKAGES = [
 setuptools.setup(
     name="word2word",
     version="1.0.0",
-    author="Kyubyong Park, Dongwoo Kim, Yo Joong Choe",
-    author_email="kbpark.linguist@gmail.com, kimdwkimdw@gmail.com, yjchoe33@gmail.com",
-    description="Easy-to-use word translations for 3,564 language pairs",
+    author="Mihailo Škorić, based on {Kyubyong Park, Dongwoo Kim, Yo Joong Choe}",
+    author_email="procesaur@gmail.com",
+    description="Build and view token mappings between languages and tokenizers",
     install_requires=REQUIRED_PACKAGES,
     license='Apache License 2.0',
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/kakaobrain/word2word",
     packages=setuptools.find_packages(),
-    package_data={'word2word': ['word2word/supporting_languages.txt']},
+    package_data={'token2token': ['token2token/supporting_languages.txt']},
     python_requires=">=3.6",
     include_package_data=True,
     classifiers=[
@@ -31,8 +31,6 @@ setuptools.setup(
         'Intended Audience :: Science/Research',
         "License :: OSI Approved :: Apache Software License",
         "Operating System :: OS Independent",
-        "Programming Language :: Python :: 3",
-        'Programming Language :: Python :: 3.6',
-        'Programming Language :: Python :: 3.7',
+        "Programming Language :: Python :: 3.12"
     ],
 )

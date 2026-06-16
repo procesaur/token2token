@@ -20,6 +20,7 @@ Authors:
 import argparse
 
 from word2word import Word2word
+from token2token import Token2Token
 
 
 def main():

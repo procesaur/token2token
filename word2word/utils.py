@@ -4,8 +4,8 @@ import wget
 import requests
 import os
 import pickle
-from zipfile import ZipFile
 from os.path import expanduser
+from datasets import load_dataset
 
 
 def get_savedir(savedir=None):
@@ -57,29 +57,25 @@ def download_or_load(lang1, lang2, custom_savedir):
     return word2x, y2word, x2ys
 
 
-def download_os2018(lang1, lang2):
+def build_dataset(lang1, lang2, tokenizer1, tokenizer2):
     """Download corpora from OpenSubtitles2018.
 
-    :return (lang1_file, lang2_file)
+    :return huggingface dataset
     """
-    datadir = get_savedir()
-    filepref = f"OpenSubtitles.{lang1}-{lang2}"
-    if all(os.path.exists(os.path.join(datadir, f"{filepref}.{lang}"))
-           for lang in [lang1, lang2]):
-        print(f"Found existing {filepref} files. loading...")
-    else:
-        # Download and unzip parallel corpus
-        url = f"http://opus.nlpl.eu/download.php?f=OpenSubtitles/v2018/moses/{lang1}-{lang2}.txt.zip"
-        zipname = os.path.join(datadir, f"{lang1}-{lang2}.txt.zip")
-        print(f"Downloading {filepref}...")
-        wget.download(url, zipname)
-        with ZipFile(zipname) as zf:
-            for fname in zf.namelist():
-                if fname.startswith(filepref):
-                    zf.extract(fname, datadir)
-        os.remove(zipname)
-    lang1_file, lang2_file = [
-        os.path.abspath(os.path.join(datadir, f"{filepref}.{lang}"))
-        for lang in [lang1, lang2]
-    ]
-    return lang1_file, lang2_file
+
+    def preprocess(example):
+        return {
+            lang1: tokenizer1.tokenize(example["src_text"]),
+            lang2: tokenizer2.tokenize(example["tgt_text"])
+        }
+
+    ds = load_dataset(
+        "Helsinki-NLP/OpenSubtitles2024",
+        split="train",
+        trust_remote_code=True,
+        data_files=f"dev/{lang1}-{lang2}/{lang1}-{lang2}.parquet",
+        streaming=True
+    )
+
+    ds = ds.map(preprocess)
+    return ds

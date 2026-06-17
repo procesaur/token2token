@@ -5,10 +5,10 @@ import pickle
 from time import time
 
 from word2word.utils import (
-    download_or_load, download_os2018, get_savedir
+    download_or_load, build_dataset, get_savedir
 )
 from word2word.tokenization import (
-    load_tokenizer, get_sents, get_vocab, update_dicts
+    load_tokenizer, get_vocab, update_dicts
 )
 from word2word.methods import (
     rerank, rerank_mp, get_trans_co, get_trans_pmi
@@ -89,50 +89,23 @@ class Word2word:
             lang1: str,
             lang2: str,
             datapref: str = None,
-            n_lines: int = 1000,
+            n_lines: int = 1000000,
             cutoff: int = 5000,
             rerank_width: int = 100,
             rerank_impl: str = "multiprocessing",
-            cased: bool = True,
             n_translations: int = 10,
             save_cooccurrence: bool = False,
             save_pmi: bool = False,
             savedir: str = None,
-            num_workers: int = 1,
+            num_workers: int = 16,
     ):
         """Build a bilingual lexicon using a parallel corpus."""
 
-        print("Step 0. Check files")
+        print("Step 1. Load tokenizers and build dataset")
         lang1, lang2 = sorted([lang1, lang2])
-        if datapref:
-            lang1_file, lang2_file = [
-                f"{datapref}.{lang}" for lang in [lang1, lang2]
-            ]
-            assert os.path.exists(lang1_file), \
-                f"custom parallel corpus file missing at {datapref}.{lang1}"
-            assert os.path.exists(lang2_file), \
-                f"custom parallel corpus file missing at {datapref}.{lang2}"
-        else:
-            lang1_file, lang2_file = download_os2018(lang1, lang2)
-
-        print("Step 1. Load tokenizer")
         tokenizer1 = load_tokenizer(lang1)
         tokenizer2 = load_tokenizer(lang2)
-
-        t0 = time()
-        print("Step 2. Constructing sentences")
-        sents1 = get_sents(
-            lang1_file, lang1, tokenizer1, cased, n_lines, num_workers
-        )
-        sents2 = get_sents(
-            lang2_file, lang2, tokenizer2, cased, n_lines, num_workers
-        )
-        print(f"Time taken for step 2: {time() - t0:.2f}s")
-
-        assert len(sents1) == len(sents2), (
-            f"{lang1} and {lang2} files must have the same number of lines.\n"
-            f"({lang1}: {len(sents1)} lines, {lang2}: {len(sents2)} lines)"
-        )
+        dataset = build_dataset(lang1, lang2, tokenizer1, tokenizer2)
 
         # input savedir if provided, else datapref (custom data location);
         # system default otherwise
@@ -140,13 +113,14 @@ class Word2word:
 
         print("Step 3. Compute vocabularies")
         # word <-> index
-        word2x, x2word, x2cnt = get_vocab(sents1)
-        word2y, y2word, y2cnt = get_vocab(sents2)
+
+        word2x, x2word, x2cnt = get_vocab(dataset.take(n_lines), lang1)
+        word2y, y2word, y2cnt = get_vocab(dataset.take(n_lines), lang2)
 
         print("Step 4. Update count dictionaries")
         # monolingual and cross-lingual dictionaries
-        x2xs, y2ys, x2ys, y2xs = update_dicts(
-            sents1, sents2, word2x, word2y, cutoff
+        x2xs, y2ys, x2ys, y2xs, seqlens1, seqlens2 = update_dicts(
+            dataset.take(n_lines), lang1, lang2, word2x, word2y, cutoff, n_lines, save_pmi
         )
 
         t0 = time()
@@ -184,9 +158,6 @@ class Word2word:
             print("Step 5-2. Translation using PMI scores")
             subdir = os.path.join(savedir, "pmi")
             os.makedirs(subdir, exist_ok=True)
-
-            seqlens1 = [len(sent) for sent in sents1]
-            seqlens2 = [len(sent) for sent in sents2]
             Nx = sum(seqlens1)
             Ny = sum(seqlens2)
             Nxy = sum([seqlen_x * seqlen_y
@@ -211,12 +182,13 @@ class Word2word:
             pickle.dump((word2y, x2word, y2xs), f)
 
     @classmethod
-    def load(cls, lang1, lang2, savedir):
+    def load(cls, lang1, lang2):
         """Loads this object with a custom-built bilingual lexicon.
 
         savedir is the directory containing {lang1}-{lang2}.pkl files
         built from the make function.
         """
+        savedir = get_savedir()
         path = os.path.join(savedir, f"{lang1}-{lang2}.pkl")
         assert os.path.exists(path), \
             f"processed lexicon file not found at {path}"

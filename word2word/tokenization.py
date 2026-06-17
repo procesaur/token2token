@@ -41,60 +41,10 @@ def load_tokenizer(lang):
 
     return tokenizer
 
-
-def word_segment(sent, lang, tokenizer):
-    if lang == 'ko':
-        words = [word for word, _ in tokenizer.pos(sent)]
-    elif lang == 'ja':
-        words = [elem for elem in tokenizer.getWS(sent)]
-    elif lang == 'th':
-        words = tokenizer(sent, engine='mm')
-    elif lang == 'vi':
-        words = tokenizer.tokenize(sent).split()
-    elif lang == 'zh_cn':
-        words = [elem for elem in tokenizer.getWS(sent)]
-    elif lang == "zh_tw":
-        words = list(tokenizer.cut(sent, cut_all=False))
-    elif lang == "ar":
-        words = tokenizer.tokenize(sent)
-    # elif lang=="en":
-    #     words = tokenizer(sent)
-    else:  # Most european languages
-        sent = re.sub("([A-Za-z])(\.[ .])", r"\1 \2", sent)
-        words = tokenizer.tokenize(sent)
-
-    return words
-
-
-def process_line(line, lang, tokenizer, cased):
-    """Strip, uncase (optionally), and tokenize line.
-
-    multiprocessing helper for get_sents()."""
-    line = line.strip() if cased else line.strip().lower()
-    return word_segment(line, lang, tokenizer)
-
-
-def get_sents(fin, lang, tokenizer, cased, n_lines, num_workers=1):
-    """Load parallel corpus and segment words using multiprocessing."""
-
-    with open(fin, encoding='utf-8') as f:
-        lines = islice(f, n_lines)
-        if num_workers <= 1:
-            return [process_line(line, lang, tokenizer, cased)
-                    for line in tqdm(lines)]
-        else:
-            print(f"Entering multiprocessing with {num_workers} workers...")
-            with Pool(num_workers) as p:
-                return p.starmap(
-                    process_line,
-                    zip(lines, repeat(lang), repeat(tokenizer), repeat(cased))
-                )
-
-
-def get_vocab(sents):
+def get_vocab(dataset, column):
     word2idx, idx2word, idx2cnt = dict(), dict(), dict()
-
-    word2cnt = Counter(tqdm(list(chain.from_iterable(sents)))).most_common()
+    X = [ex[column] for ex in dataset]
+    word2cnt = Counter(list(chain.from_iterable(X))).most_common()
     word2cnt.sort(key=operator.itemgetter(1, 0), reverse=True)
     for idx, (word, cnt) in enumerate(tqdm(word2cnt)):
         word2idx[word] = idx
@@ -104,7 +54,7 @@ def get_vocab(sents):
     return word2idx, idx2word, idx2cnt
 
 
-def update_dicts(sents1, sents2, vocab1, vocab2, cutoff):
+def update_dicts(dataset, lang1, lang2, vocab1, vocab2, cutoff, n_lines, save_pmi):
     """Get monolingual and cross-lingual count dictionaries.
 
     'cutoff' determines how many collocates are considered in each language.
@@ -122,10 +72,17 @@ def update_dicts(sents1, sents2, vocab1, vocab2, cutoff):
     y_y_dict = build_ddi()
     x_y_dict = build_ddi()
     y_x_dict = build_ddi()
+    seqlens1 = []
+    seqlens2 = []
 
-    for sent1, sent2 in tqdm(zip(sents1, sents2), total=len(sents1)):
-        xs = [vocab1[wx] for wx in sent1 if wx in vocab1]
-        ys = [vocab2[wy] for wy in sent2 if wy in vocab2]
+    for ex in tqdm(dataset, total=n_lines):
+
+        if save_pmi:
+            seqlens1.append(len(ex[lang1]))
+            seqlens2.append(len(ex[lang2]))
+
+        xs = [vocab1[wx] for wx in ex[lang1] if wx in vocab1]
+        ys = [vocab2[wy] for wy in ex[lang2] if wy in vocab2]
 
         for xx1, xx2 in u2_iter(xs, xs, same_ignore=True, cut_t2=cutoff):
             x_x_dict[xx1][xx2] += 1
@@ -139,5 +96,7 @@ def update_dicts(sents1, sents2, vocab1, vocab2, cutoff):
     def ddi2dict(ddi):
         return {k: dict(v) for k, v in ddi.items()}
 
-    return tuple(ddi2dict(ddi)
-                 for ddi in [x_x_dict, y_y_dict, x_y_dict, y_x_dict])
+    return tuple(
+        list(ddi2dict(ddi) for ddi in [x_x_dict, y_y_dict, x_y_dict, y_x_dict])
+        + [seqlens1, seqlens2]
+    )

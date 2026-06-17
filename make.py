@@ -63,4 +63,5 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    Word2word.make(lang1="sr",lang2="hr")
+    #main()

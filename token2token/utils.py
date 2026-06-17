@@ -30,29 +30,9 @@ def exists(path):
     return r.status_code == requests.codes.ok
 
 
-def get_download_url(lang1, lang2): #TODO
-    filepath = os.path.dirname(os.path.abspath(__file__)) + '/supporting_languages.txt'
-    for line in open(filepath, 'r'):
-        l1, l2 = line.strip().split("-")
-        if lang1 == l1 and lang2 == l2:
-            return f"https://mk.kakaocdn.net/dn/kakaobrain/token2token/{lang1}-{lang2}.pkl"
-    raise Exception(f"Language pair {lang1}-{lang2} is not supported.")
-
-
 def download_or_load(lang1, lang2, custom_savedir): #TODO
     savedir = get_savedir(savedir=custom_savedir)
     fpath = os.path.join(savedir, f"{lang1}-{lang2}.pkl")
-    if not os.path.exists(fpath):
-        # download from cloud
-        url = get_download_url(lang1, lang2)
-        if url is None:
-            raise ValueError(f"Dataset not found for {lang1}-{lang2}.")
-
-        if not exists(url):
-            raise ValueError("Sorry. There seems to be a problem with cloud access.")
-
-        print("Downloading data ...")
-        wget.download(url, fpath)
     token2x, y2token, x2ys = pickle.load(open(fpath, 'rb'))
     return token2x, y2token, x2ys
 

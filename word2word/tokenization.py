@@ -74,14 +74,14 @@ def process_line(line, lang, tokenizer, cased):
     return word_segment(line, lang, tokenizer)
 
 
-def get_sents(fin, lang, tokenizer, cased, n_lines, num_workers=8):
+def get_sents(fin, lang, tokenizer, cased, n_lines, num_workers=1):
     """Load parallel corpus and segment words using multiprocessing."""
 
     with open(fin, encoding='utf-8') as f:
         lines = islice(f, n_lines)
         if num_workers <= 1:
             return [process_line(line, lang, tokenizer, cased)
-                    for line in lines]
+                    for line in tqdm(lines)]
         else:
             print(f"Entering multiprocessing with {num_workers} workers...")
             with Pool(num_workers) as p:

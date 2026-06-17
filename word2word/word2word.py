@@ -89,7 +89,7 @@ class Word2word:
             lang1: str,
             lang2: str,
             datapref: str = None,
-            n_lines: int = 100000000,
+            n_lines: int = 1000,
             cutoff: int = 5000,
             rerank_width: int = 100,
             rerank_impl: str = "multiprocessing",
@@ -98,7 +98,7 @@ class Word2word:
             save_cooccurrence: bool = False,
             save_pmi: bool = False,
             savedir: str = None,
-            num_workers: int = 16,
+            num_workers: int = 1,
     ):
         """Build a bilingual lexicon using a parallel corpus."""
 

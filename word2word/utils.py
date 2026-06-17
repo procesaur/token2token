@@ -62,7 +62,7 @@ def download_os2018(lang1, lang2):
 
     :return (lang1_file, lang2_file)
     """
-    datadir = "data"
+    datadir = get_savedir()
     filepref = f"OpenSubtitles.{lang1}-{lang2}"
     if all(os.path.exists(os.path.join(datadir, f"{filepref}.{lang}"))
            for lang in [lang1, lang2]):

@@ -74,11 +74,11 @@ class Word2word (Token2token):
         lang1, lang2 = sorted([lang1, lang2])
         tokenizer1, t1name = load_word_tokenizer(lang1)
         tokenizer2, t2name = load_word_tokenizer(lang2)
-        dataset = build_dataset(lang1, lang2, tokenizer1, tokenizer2)
+        dataset = build_dataset(lang1, lang2, tokenizer1, tokenizer2, datapref)
 
         # input savedir if provided, else datapref (custom data location);
         # system default otherwise
-        savedir = get_savedir(savedir if savedir else datapref)
+        savedir = get_savedir()
 
         print("Step 3. Compute vocabularies")
         # word <-> index

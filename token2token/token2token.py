@@ -131,7 +131,7 @@ class Token2token:
 
         # input savedir if provided, else datapref (custom data location);
         # system default otherwise
-        savedir = get_savedir(savedir if savedir else datapref)
+        savedir = get_savedir()
 
         print("Step 3. Compute vocabularies")
         # token <-> index

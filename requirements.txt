@@ -1,4 +1,4 @@
 requests
-wget
+transformers
 numpy
 tqdm

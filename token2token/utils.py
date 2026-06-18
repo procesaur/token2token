@@ -27,24 +27,32 @@ def exists(path):
     return r.status_code == requests.codes.ok
 
 
-def build_dataset(lang1, lang2, tokenizer1, tokenizer2):
+def build_dataset(lang1, lang2, tokenizer1, tokenizer2, datapref=None, column1="src_text", column2="tgt_text"):
     """Download corpora from OpenSubtitles2018.
     :return huggingface dataset
     """
 
     def preprocess(example):
         return {
-            lang1: tokenizer1.tokenize(example["src_text"]),
-            lang2: tokenizer2.tokenize(example["tgt_text"])
+            lang1: tokenizer1.tokenize(example[column1]),
+            lang2: tokenizer2.tokenize(example[column2])
         }
 
-    ds = load_dataset(
-        "Helsinki-NLP/OpenSubtitles2024",
-        split="train",
-        trust_remote_code=True,
-        data_files=f"dev/{lang1}-{lang2}/{lang1}-{lang2}.parquet",
-        streaming=True
-    )
+    if datapref:
+        ds = load_dataset(
+            datapref,
+            split="train",
+            streaming=True
+        )
+        
+    else:
+        ds = load_dataset(
+            "Helsinki-NLP/OpenSubtitles2024",
+            split="train",
+            trust_remote_code=True,
+            data_files=f"dev/{lang1}-{lang2}/{lang1}-{lang2}.parquet",
+            streaming=True
+        )
 
     ds = ds.map(preprocess)
     return ds

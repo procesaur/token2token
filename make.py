@@ -19,7 +19,7 @@ Authors:
 
 import argparse
 
-from token2token import Word2word
+# from token2token import Word2word
 from token2token import Token2token
 
 
@@ -31,6 +31,10 @@ def main():
     parser.add_argument('--lang2', type=str, required=True,
                         help="ISO 639-1 code of language. "
                              "See `http://opus.nlpl.eu/OpenSubtitles2018.php`")
+    parser.add_argument('--tokenizer1', type=str, required=True,
+                        help="identifier of a huggingface model, or a path to dir with tokenizer.json")
+    parser.add_argument('--tokenizer2', type=str, required=True,
+                        help="identifier of a huggingface model, or a path to dir with tokenizer.json")
     parser.add_argument('--datapref', type=str, default=None,
                         help="data prefix to a custom parallel corpus. "
                              "builds a bilingual lexicon using OpenSubtitles2018 "
@@ -59,11 +63,13 @@ def main():
                         help="number of workers used for multiprocessing")
     args = parser.parse_args()
 
-    Word2word.make(**vars(args))
+    Token2token.make(**vars(args))
 
 
 if __name__ == "__main__":
-    #Word2word.make(lang1="sr", lang2="hr")
-    srhr = Word2word(lang1="sr", lang2="hr")
-    print(srhr("fudbal"))
-    #main()
+    # Word2word.make(lang1="sr", lang2="hr", n_lines=100)
+    # srhr = Word2word(lang1="sr", lang2="hr")
+    # Token2token.make(lang1="sr", lang2="hr", tokenizer1="jerteh/Jerteh-81", tokenizer2="jerteh/Jerteh-81", n_lines=100)
+    # srhr = Token2token(lang1="sr", lang2="hr")
+    # print(srhr("fudbal"))
+    main()

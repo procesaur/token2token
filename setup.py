@@ -5,7 +5,7 @@ with open("README.md", mode="r", encoding="utf-8") as fh:
 
 REQUIRED_PACKAGES = [
     'requests',
-    'wget',
+    'transformers',
     'numpy',
     'tqdm',
 ]
@@ -20,9 +20,8 @@ setuptools.setup(
     license='Apache License 2.0',
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url="https://github.com/kakaobrain/word2word",
+    url="https://github.com/procesaur/token2token",
     packages=setuptools.find_packages(),
-    package_data={'token2token': ['token2token/supporting_languages.txt']},
     python_requires=">=3.6",
     include_package_data=True,
     classifiers=[

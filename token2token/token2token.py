@@ -4,9 +4,13 @@ from json import dump, load
 from time import time
 
 from token2token.utils import build_dataset, get_savedir
-from token2token.tokenization import load_hf_tokenizer, get_vocab, update_dicts
-from token2token.methods import rerank, rerank_mp, get_trans_pmi
+from token2token.methods import rerank, rerank_mp, get_trans_pmi, get_vocab, update_dicts
+from transformers import AutoTokenizer
 
+
+def load_hf_tokenizer(name):
+    tokenizer = AutoTokenizer.from_pretrained(name)
+    return tokenizer
 
 class Token2token:
     """The token2token class.
@@ -14,22 +18,28 @@ class Token2token:
     Usage:
         from token2token import Token2token
 
-        # Download and load a pre-computed bilingual lexicon
+        # Download and load a pre-computed token mapping
         en2fr = Token2token("en", "fr")
         print(en2fr("apple"))
         # out: ['pomme', 'pommes', 'pommier', 'tartes', 'fleurs']
 
-        # Build a custom bilingual lexicon
+        # Build a custom token mapping
         # (requires two aligned files, e.g., my_corpus.en, my_corpus.fr)
-        my_en2fr = Token2token.make("en", "fr", "my_corpus")
+        my_en2fr = Token2token.make("en", "fr", datapref="my_corpus_id_on_hf", column1="text_en_or_smthng", column2="text_fr_or_smthng")
     """
 
-    def __init__(self, lang1=None, lang2=None, path=None):
-        """Loads this object with a custom-built bilingual lexicon.
+    def __init__(self, lang1=None, lang2=None, token2x=None, y2token=None, x2ys=None, path=None,):
+        """Loads this object with a custom-built token mapping.
 
         savedir is the directory containing {lang1}-{lang2}.pkl files
         built from the make function.
         """
+
+        if all(d is not None for d in [lang1, lang2, token2x, y2token, x2ys]):
+            # load a custom-built token2token bilingual tool mapping
+            self.lang1, self.lang2, self.token2x, self.y2token, self.x2ys = lang1, lang2, token2x, y2token, x2ys
+            return  
+
         if not path:
             if lang1 and lang2:
                 savedir = get_savedir()
@@ -45,7 +55,7 @@ class Token2token:
         self.lang1 = data["src_lang"]
         self.lang2 = data["tgt_lang"]
 
-        print(f"Loaded token2token custom bilingual lexicon from {path}")
+        print(f"Loaded token2token custom token mapping from {path}")
 
         self.token2x = data["src_vocab"]
         self.token2y = data["tgt_vocab"]
@@ -70,7 +80,7 @@ class Token2token:
             tokens = {self.y2token[y[0]] : y[1] for y in ys[:n_best]}
         except KeyError:
             raise KeyError(
-                f"query token {query} not found in the bilingual lexicon."
+                f"query token {query} not found in the token mapping."
             )
         return tokens
 
@@ -79,7 +89,7 @@ class Token2token:
         return len(self.x2ys)
 
     def compute_summary(self):
-        """Compute basic summaries for the bilingual lexicon."""
+        """Compute basic summaries for the token mapping."""
         n_unique_ys = len(set([y for ys in self.x2ys.values() for y in ys]))
         n_ys = [len(ys) for ys in self.x2ys.values()]
         self.summary = {
@@ -109,13 +119,15 @@ class Token2token:
             savedir: str = None,
             num_workers: int = 16,
     ):
-        """Build a bilingual lexicon using a parallel corpus."""
+        """Build a token mapping using a parallel corpus."""
 
         print("Step 1. Load tokenizers and build dataset")
         lang1, lang2 = sorted([lang1, lang2])
-        tokenizer1 = load_hf_tokenizer(tokenizer1)
-        tokenizer2 = load_hf_tokenizer(tokenizer2)
-        dataset = build_dataset(lang1, lang2, tokenizer1, tokenizer2)
+        t1name = tokenizer1
+        t2name = tokenizer2
+        tokenizer1 = load_hf_tokenizer(t1name)
+        tokenizer2 = load_hf_tokenizer(t2name)
+        dataset = build_dataset(lang1, lang2, tokenizer1, tokenizer2, datapref)
 
         # input savedir if provided, else datapref (custom data location);
         # system default otherwise
@@ -124,8 +136,8 @@ class Token2token:
         print("Step 3. Compute vocabularies")
         # token <-> index
 
-        token2x, x2token, x2cnt = get_vocab(dataset.take(n_lines), lang1)
-        token2y, y2token, y2cnt = get_vocab(dataset.take(n_lines), lang2)
+        token2x, x2token, x2cnt = get_vocab(dataset.take(n_lines), lang1, tokenizer1)
+        token2y, y2token, y2cnt = get_vocab(dataset.take(n_lines), lang2, tokenizer2)
 
         print("Step 4. Update count dictionaries")
         # monolingual and cross-lingual dictionaries
@@ -152,7 +164,7 @@ class Token2token:
 
         print("Saving...")
         Token2token.save(lang1, lang2, savedir, token2x, token2y, x2token,
-                       x2ys_cpe, y2token, y2xs_cpe)
+                       x2ys_cpe, y2token, y2xs_cpe, t1name, t2name)
 
         if save_pmi:
             print("Step 5-1. Translation using PMI scores")
@@ -169,16 +181,16 @@ class Token2token:
                                      rerank_width, n_translations)
 
             Token2token.save(lang1, lang2, subdir, token2x, token2y, x2token,
-                           x2ys_pmi, y2token, y2xs_pmi)
+                           x2ys_pmi, y2token, y2xs_pmi, t1name, t2name)
 
         print("Done!")
         return cls(lang1, lang2, token2x, y2token, x2ys_cpe)
 
     @staticmethod
-    def save(lang1, lang2, savedir, token2x, token2y, x2token, x2ys, y2token, y2xs):
+    def save(lang1, lang2, savedir, token2x, token2y, x2token, x2ys, y2token, y2xs, t1name, t2name):
 
         def _dump_json(path, src_vocab, tgt_vocab, translations, src_lang, tgt_lang,
-                    id2token_src, id2token_tgt):
+                    id2token_src, id2token_tgt, t1name=t1name, t2name=t2name):
             """Helper to write bilingual dictionary JSON with tokens instead of IDs."""
             norm_translations = {}
             for src_id, tgts in translations.items():
@@ -194,6 +206,8 @@ class Token2token:
             data = {
                 "src_lang": src_lang,
                 "tgt_lang": tgt_lang,
+                "src_tokenizer": t1name,
+                "tgt_tokenizer": t2name,
                 "src_vocab": src_vocab,
                 "tgt_vocab": tgt_vocab,
                 "translations": norm_translations
@@ -210,7 +224,9 @@ class Token2token:
             src_lang=lang1,
             tgt_lang=lang2,
             id2token_src=x2token,
-            id2token_tgt=y2token
+            id2token_tgt=y2token,
+            t1name=t1name,
+            t2name=t2name
         )
 
         # lang2 → lang1
@@ -222,5 +238,7 @@ class Token2token:
             src_lang=lang2,
             tgt_lang=lang1,
             id2token_src=y2token,
-            id2token_tgt=x2token
+            id2token_tgt=x2token,
+            t1name=t1name,
+            t2name=t2name
         )

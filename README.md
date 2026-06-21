@@ -129,7 +129,8 @@ All of our pre-computed bilingual lexicons were constructed from the publicly av
 ```
 
 ## Authors
-
+[Mihailo Škorić](https://github.com/procesaur)
+based on 
 [Kyubyong Park](https://github.com/Kyubyong), 
 [Dongwoo Kim](https://github.com/kimdwkimdw), and 
 [YJ Choe](https://github.com/yjchoe)

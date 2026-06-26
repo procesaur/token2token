@@ -11,7 +11,7 @@ REQUIRED_PACKAGES = [
 ]
 
 setuptools.setup(
-    name="word2word",
+    name="token2token",
     version="1.0.0",
     author="Mihailo Škorić, based on {Kyubyong Park, Dongwoo Kim, Yo Joong Choe}",
     author_email="procesaur@gmail.com",

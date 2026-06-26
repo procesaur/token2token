@@ -60,13 +60,13 @@ The old pipeline has been modified :
 In both cases, the custom lexicon can be loaded from the directory it is stored in
 (defaulting to home directory in linux or "C:\word2word" in Windows
 ```python
-from word2word import Token2token
+from token2token import Token2token
 my_en2fr = Token2token.load("en", "fr")
 # Loaded token2token custom token mapping from C:\word2word\en-fr.json
 ```
 
 ```python
-from word2word import Word2word
+from token2token import Word2word
 my_en2fr = Word2word.load("en", "fr", "data/pubmed.en-fr")
 # Loaded token2word custom bilingual lexicon from C:\word2word\en-fr.json
 ```

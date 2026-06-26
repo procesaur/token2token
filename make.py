@@ -19,7 +19,7 @@ Authors:
 
 import argparse
 
-# from token2token import Word2word
+from token2token import Word2word
 from token2token import Token2token
 
 
@@ -35,10 +35,16 @@ def main():
                         help="identifier of a huggingface model, or a path to dir with tokenizer.json")
     parser.add_argument('--tokenizer2', type=str, required=True,
                         help="identifier of a huggingface model, or a path to dir with tokenizer.json")
+
     parser.add_argument('--datapref', type=str, default=None,
                         help="data prefix to a custom parallel corpus. "
                              "builds a bilingual lexicon using OpenSubtitles2018 "
                              "unless this option is provided.")
+    parser.add_argument('--column1', type=str, default="src_text",
+                        help="identifier of the first column with parallel text in a huggingface dataset")
+    parser.add_argument('--column2', type=str, default="tgt_text",
+                        help="identifier of the second column with parallel text in a huggingface dataset")
+
     parser.add_argument('--n_lines', type=int, default=100000000,
                         help="number of parallel sentences used")
     parser.add_argument('--cutoff', type=int, default=5000,
@@ -69,7 +75,10 @@ def main():
 if __name__ == "__main__":
     # Word2word.make(lang1="sr", lang2="hr", n_lines=100)
     # srhr = Word2word(lang1="sr", lang2="hr")
-    # Token2token.make(lang1="sr", lang2="hr", tokenizer1="jerteh/Jerteh-81", tokenizer2="jerteh/Jerteh-81", n_lines=100)
+
+    #enfr = Token2token.make(lang1="en", lang2="fr", tokenizer1="Qwen/Qwen3.5-0.8B", tokenizer2="Qwen/Qwen3.5-0.8B", n_lines=500000)
+    enfr = Word2word.make(lang1="en", lang2="fr", n_lines=500000)
+    # Token2token.make(lang1="sr", lang2="hr", tokenizer1="jerteh/Jerteh-81", tokenizer2="jerteh/Jerteh-81", n_lines=1000000)
     # srhr = Token2token(lang1="sr", lang2="hr")
-    # print(srhr("fudbal"))
-    main()
+    print(enfr("apple"))
+    #main()

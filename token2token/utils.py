@@ -28,9 +28,13 @@ def exists(path):
 
 
 def build_dataset(lang1, lang2, tokenizer1, tokenizer2, datapref=None, column1="src_text", column2="tgt_text"):
-    """Download corpora from OpenSubtitles2018.
+    """Download corpora from OpenSubtitles2024.
     :return huggingface dataset
     """
+    if column1 == None:
+        column1 = "src_text"
+    if column2 == None:
+        column2 = "tgt_text"
 
     def preprocess(example):
         return {

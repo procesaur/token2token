@@ -1,105 +1,103 @@
-[![image](https://img.shields.io/pypi/v/word2word.svg)](https://pypi.org/project/word2word/)
-[![image](https://img.shields.io/pypi/l/word2word.svg)](https://pypi.org/project/word2word/)
-[![image](https://img.shields.io/pypi/pyversions/word2word.svg)](https://pypi.org/project/word2word/)
-[![image](https://img.shields.io/badge/Say%20Thanks-!-1EAEDB.svg)](https://saythanks.io/to/kimdwkimdw)
+[![image](https://img.shields.io/pypi/v/token2token.svg)](https://pypi.org/project/token2token/)
+[![image](https://img.shields.io/pypi/l/token2token.svg)](https://pypi.org/project/token2token/)
+[![image](https://img.shields.io/pypi/pyversions/token2token.svg)](https://pypi.org/project/token2token/)
 
-# word2word
+# token2token
 
-Easy-to-use word translations for 3,564 language pairs.
+Easy-to-make token mappings using one or two tokenizers and a parallel corpus.
+<!--This is the official code accompanying [our LREC 2020 paper](https://arxiv.org/abs/1911.12019).-->
 
-This is the official code accompanying [our LREC 2020 paper](https://arxiv.org/abs/1911.12019).
+## Example
 
-## Summary
+You want to align French and English on sub-token level.
+You need:
+- A French (HuggingFace) tokenizer
+- An English tokenizer (could be the same one)
+- A French-English parallel corpus (if none provided OpenSubtitles2024 from huggingface is used by default)
+- This software
 
-* A large collection of freely & publicly available bilingual lexicons
-    **for 3,564 language pairs across 62 unique languages.** 
-* Easy-to-use Python interface for accessing top-k word translations and 
-    for building a new bilingual lexicon from a custom parallel corpus.
-* Constructed using a simple approach that yields bilingual lexicons with 
-    high coverage and competitive translation quality.
+For each token in the first tokenizer you will get a list of possible matching tokens from the second tokenizers and a score for each of them.
+
+Alternatively, you can still use the old pipeline and get word mappings based on NLTK or other specialized tokenizer
 
 ## Usage
 
-First, install the package using `pip`:
-```shell script
-pip install word2word
-```
-
-OR
-
+First, install the package using 
 ```shell script
 git clone https://github.com/kakaobrain/word2word
 python setup.py install
 ```
+<!--
+OR
+
+```shell script
+pip install token2token
+```
+-->
+
 
 Then, in Python, download the model and retrieve top-5 word translations 
 of any given word to the desired language:
 ```python
-from word2word import Word2word
-en2fr = Word2word("en", "fr")
-print(en2fr("apple"))
-# out: ['pomme', 'pommes', 'pommier', 'tartes', 'fleurs']
+from token2token import Token2token
+enfr = Token2token.make(lang1="en", lang2="fr", tokenizer1="Qwen/Qwen3.5-0.8B", tokenizer2="Qwen/Qwen3.5-0.8B", n_lines=500000)
+print(en2fr("Ġapple"))
+# out: {'Ġpomme': 18.72391482536058, 'omm': 4.7151260350878825, 'nÃ©s': 2.887133318202845, 'Ġpommes': 2.8528411761126584, 'po': 2.799092675636191}
 ```
 
-![gif](./word2word.gif)
-
-## Supported Languages
-
-We provide top-k word-to-word translations across all available pairs 
-    from [OpenSubtitles2018](http://opus.nlpl.eu/OpenSubtitles2018.php). 
-This amounts to a total of 3,564 language pairs across 62 unique languages. 
-
-The full list is provided [here](word2word/supporting_languages.txt).
-
-## Methodology
-
-Our approach computes top-k word translations based on 
-the co-occurrence statistics between cross-lingual word pairs in a parallel corpus.
-We additionally introduce a correction term that controls for any confounding effect
-coming from other source words within the same sentence.
-The resulting method is an efficient and scalable approach that allows us to
-construct large bilingual dictionaries from any given parallel corpus. 
-
-For more details, see the Methodology section of [our paper](https://arxiv.org/abs/1911.12019).
-
-
-## Building a Bilingual Lexicon on a Custom Parallel Corpus
-
-The `word2word` package also provides interface for 
-building a custom bilingual lexicon using a different parallel corpus.
-Here, we show an example of building one from 
-the [Medline English-French dataset](https://drive.google.com/drive/folders/0B3UxRWA52hBjQjZmYlRZWHQ4SUE): 
+Alternatively you can still use the old pipeline to get word mappings:
 ```python
-from word2word import Word2word
+from token2token import Word2word
+enfr = Word2word.make(lang1="en", lang2="fr", n_lines=500000)
+print(en2fr("apple"))
+# out: {'pomme': 18.491287696990998, 'pommiers': 2.913168676725654, 'pommes': 2.8193681613734003, 'empoisonnés': 2.767322352478363, 'pommier': 1.8529305946107455}
+```
+The old pipeline has been modified :
+- to use huggingface datasets for corpora
+- to output scores together with words and
+- to save in plain, human readable JSON format.
 
-# custom parallel data: data/pubmed.en-fr.en, data/pubmed.en-fr.fr
-my_en2fr = Word2word.make("en", "fr", "data/pubmed.en-fr")
-# ...building...
-print(my_en2fr("mitochondrial"))
-# out: ['mitochondriale', 'mitochondriales', 'mitochondrial', 
-#       'cytopathies', 'mitochondriaux']
+In both cases, the custom lexicon can be loaded from the directory it is stored in
+(defaulting to home directory in linux or "C:\word2word" in Windows
+```python
+from word2word import Token2token
+my_en2fr = Token2token.load("en", "fr")
+# Loaded token2token custom token mapping from C:\word2word\en-fr.json
 ```
 
-When built from source, the bilingual lexicon can also be constructed from the command line as follows:
-```shell script
-python make.py --lang1 en --lang2 fr --datapref data/pubmed.en-fr
-```
-
-In both cases, the custom lexicon (saved to `datapref/` by default) can be re-loaded in Python:
 ```python
 from word2word import Word2word
 my_en2fr = Word2word.load("en", "fr", "data/pubmed.en-fr")
-# Loaded word2word custom bilingual lexicon from data/pubmed.en-fr/en-fr.pkl
+# Loaded token2word custom bilingual lexicon from C:\word2word\en-fr.json
 ```
+
+## Supported Languages
+
+As already mentioned, when custom dataset is not provided the fallback is [OpenSubtitles2024](https://opus.nlpl.eu/datasets/OpenSubtitles), supporting 94 langugages.
+
+
+## Methodology
+
+The approach computes top-k word translations based on 
+the co-occurrence statistics between cross-lingual word pairs in a parallel corpus.
+There is also a correction term that controls for any confounding effect
+coming from other source words within the same sentence.
+The resulting method is an efficient and scalable approach that allows the
+construction of large bilingual dictionaries from any given parallel corpus,
+ or a (subword) token alignment bwtween different languages and/or tokenizers. 
+
+For more details, see the Methodology section of [the original paper](https://arxiv.org/abs/1911.12019).
+
 
 ### Multiprocessing
 
 In both the Python interface and the command line interface, 
-`make` uses multiprocessing with 16 CPUs by default.
+`make` uses multiprocessing with 8 CPUs by default.
 The number of CPU workers can be adjusted by setting 
 `num_workers=N` (Python) or `--num_workers N` (command line).
 
 ## References
+
 
 If you use word2word for research, please cite [our paper](https://arxiv.org/abs/1911.12019):
 ```bibtex
@@ -111,22 +109,7 @@ If you use word2word for research, please cite [our paper](https://arxiv.org/abs
 }
 ```
 
-All of our pre-computed bilingual lexicons were constructed from the publicly available
-    [OpenSubtitles2018](http://opus.nlpl.eu/OpenSubtitles2018.php) dataset:
-```bibtex
-@inproceedings{lison-etal-2018-opensubtitles2018,
-    title = "{O}pen{S}ubtitles2018: Statistical Rescoring of Sentence Alignments in Large, Noisy Parallel Corpora",
-    author = {Lison, Pierre  and
-      Tiedemann, J{\"o}rg  and
-      Kouylekov, Milen},
-    booktitle = "Proceedings of the Eleventh International Conference on Language Resources and Evaluation ({LREC} 2018)",
-    month = may,
-    year = "2018",
-    address = "Miyazaki, Japan",
-    publisher = "European Language Resources Association (ELRA)",
-    url = "https://www.aclweb.org/anthology/L18-1275",
-}
-```
+For token2token add-on citation coming soon.
 
 ## Authors
 [Mihailo Škorić](https://github.com/procesaur)

@@ -18,14 +18,15 @@ class Token2token:
     Usage:
         from token2token import Token2token
 
-        # Download and load a pre-computed token mapping
+        # Load a pre-computed token mapping from default path
         en2fr = Token2token("en", "fr")
-        print(en2fr("apple"))
-        # out: ['pomme', 'pommes', 'pommier', 'tartes', 'fleurs']
+        print(en2fr("Ġapple"))
+        # out: ['Ġpomme': 0.58, 'Ġpommes':0.3, 'Ġpomm': 0.11, 'Ġtart': 0.09]
 
         # Build a custom token mapping
         # (requires two aligned files, e.g., my_corpus.en, my_corpus.fr)
-        my_en2fr = Token2token.make("en", "fr", datapref="my_corpus_id_on_hf", column1="text_en_or_smthng", column2="text_fr_or_smthng")
+        my_en2fr = Token2token.make("en", "fr", "myfirsttokenizer", "mysecondtokenizer", datapref="my_corpus_id_on_hf", column1="text_en_or_smthng", column2="text_fr_or_smthng")
+        my_en2fr = Token2token.make("sr", "hr", "procesaur/gpt2-srlat", "procesaur/gpt2-srlat", "Helsinki-NLP/OpenSubtitles2024", column1="src_text", column2="tgt_text")
     """
 
     def __init__(self, lang1=None, lang2=None, token2x=None, y2token=None, x2ys=None, path=None,):
@@ -110,6 +111,8 @@ class Token2token:
             tokenizer1: str,
             tokenizer2: str,
             datapref: str = None,
+            column1: str = None,
+            column2: str = None,
             n_lines: int = 1000000,
             cutoff: int = 5000,
             rerank_width: int = 100,
@@ -117,7 +120,7 @@ class Token2token:
             n_translations: int = 10,
             save_pmi: bool = False,
             savedir: str = None,
-            num_workers: int = 16,
+            num_workers: int = 8,
     ):
         """Build a token mapping using a parallel corpus."""
 
@@ -127,11 +130,11 @@ class Token2token:
         t2name = tokenizer2
         tokenizer1 = load_hf_tokenizer(t1name)
         tokenizer2 = load_hf_tokenizer(t2name)
-        dataset = build_dataset(lang1, lang2, tokenizer1, tokenizer2, datapref)
+        dataset = build_dataset(lang1, lang2, tokenizer1, tokenizer2, datapref, column1, column2)
 
-        # input savedir if provided, else datapref (custom data location);
-        # system default otherwise
-        savedir = get_savedir()
+        # input savedir if provided, system default otherwise
+        if not savedir:
+            savedir = get_savedir()
 
         print("Step 3. Compute vocabularies")
         # token <-> index

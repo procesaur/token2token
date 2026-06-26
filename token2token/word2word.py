@@ -43,14 +43,14 @@ class Word2word (Token2token):
     Usage:
         from word2word import Word2word
 
-        # Download and load a pre-computed bilingual lexicon
+        # Load a pre-computed bilingual lexicon
         en2fr = Word2word("en", "fr")
         print(en2fr("apple"))
-        # out: ['pomme', 'pommes', 'pommier', 'tartes', 'fleurs']
+        # out: ['pomme': 0.58, 'pommes':0.3, 'pommier': 0.11, 'tartes': 0.09, 'fleurs':0.01]
 
         # Build a custom bilingual lexicon
-        # (requires two aligned files, e.g., my_corpus.en, my_corpus.fr)
-        my_en2fr = Word2word.make("en", "fr", "my_corpus")
+        # (requires a parallel corpus on huggingface)
+        my_en2fr = Word2word.make("en", "fr", "Helsinki-NLP/OpenSubtitles2024", column1="src_text", column2="tgt_text")
     """
 
     @classmethod
@@ -59,6 +59,8 @@ class Word2word (Token2token):
             lang1: str,
             lang2: str,
             datapref: str = None,
+            column1: str = None,
+            column2: str = None,
             n_lines: int = 1000000,
             cutoff: int = 5000,
             rerank_width: int = 100,
@@ -66,7 +68,7 @@ class Word2word (Token2token):
             n_translations: int = 10,
             save_pmi: bool = False,
             savedir: str = None,
-            num_workers: int = 16,
+            num_workers: int = 8,
     ):
         """Build a bilingual lexicon using a parallel corpus."""
 
@@ -74,11 +76,11 @@ class Word2word (Token2token):
         lang1, lang2 = sorted([lang1, lang2])
         tokenizer1, t1name = load_word_tokenizer(lang1)
         tokenizer2, t2name = load_word_tokenizer(lang2)
-        dataset = build_dataset(lang1, lang2, tokenizer1, tokenizer2, datapref)
+        dataset = build_dataset(lang1, lang2, tokenizer1, tokenizer2, datapref, column1, column2)
 
-        # input savedir if provided, else datapref (custom data location);
-        # system default otherwise
-        savedir = get_savedir()
+        # input savedir if provided, system default otherwise
+        if not savedir:
+            savedir = get_savedir()
 
         print("Step 3. Compute vocabularies")
         # word <-> index

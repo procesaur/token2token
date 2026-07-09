@@ -1,26 +1,33 @@
 # -*- coding: utf-8 -*-
 r"""
-A command line script for building a word2word bilingual lexicon.
+A command line script for building a token2token bilingual lexicon.
 
 By default, builds from a (downloaded) OpenSubtitles2018 dataset;
  also supports building from a custom parallel corpus.
 
 Usage:
     # Build with OpenSubtitles2018
-    python make.py --lang1 en --lang2 es
-    # Save files to a custom location (also see Word2word.load)
-    python make.py --lang1 ko --lang2 en --savedir ko-en.w2w
+
+        my_en2fr = Token2token.make("sr", "hr", "procesaur/gpt2-srlat", "procesaur/gpt2-srlat", "Helsinki-NLP/OpenSubtitles2024", column1="src_text", column2="tgt_text")
+    python make.py sr hr
+    
+    # Build with custom tokenizer
+    python make.py sr hr --tokenizer1 "procesaur/gpt2-srlat" --tokenizer2 "procesaur/gpt2-srlat"
+
     # Build with a custom dataset
-    python make.py --lang1 en --lang2 fr --datapref data/pubmed.en-fr
+    python make.py --lang1 sr --lang2 hr --datapref "Helsinki-NLP/OpenSubtitles2024" --column1 src_text --column2 tgt_text
+
+    # Use the original implementation
+    python make.py sr hr --word2word
+
 
 Authors:
-    Kyubyong Park (kbpark.linguist@gmail.com), YJ Choe (yjchoe33@gmail.com), Dongwoo Kim (kimdwkimdw@gmail.com)
+    Mihailo Škorić (procesaur@gmail.com), based on Kyubyong Park (kbpark.linguist@gmail.com), YJ Choe (yjchoe33@gmail.com), Dongwoo Kim (kimdwkimdw@gmail.com)
 """
 
 import argparse
 
-from token2token import Word2word
-from token2token import Token2token
+from token2token import Token2token, Word2word
 
 
 def main():
@@ -31,9 +38,9 @@ def main():
     parser.add_argument('--lang2', type=str, required=True,
                         help="ISO 639-1 code of language. "
                              "See `http://opus.nlpl.eu/OpenSubtitles2018.php`")
-    parser.add_argument('--tokenizer1', type=str, required=True,
+    parser.add_argument('--tokenizer1', type=str, default="openai-community/gpt2",
                         help="identifier of a huggingface model, or a path to dir with tokenizer.json")
-    parser.add_argument('--tokenizer2', type=str, required=True,
+    parser.add_argument('--tokenizer2', type=str, required="openai-community/gpt2",
                         help="identifier of a huggingface model, or a path to dir with tokenizer.json")
 
     parser.add_argument('--datapref', type=str, default=None,
@@ -44,6 +51,8 @@ def main():
                         help="identifier of the first column with parallel text in a huggingface dataset")
     parser.add_argument('--column2', type=str, default="tgt_text",
                         help="identifier of the second column with parallel text in a huggingface dataset")
+    parser.add_argument('--word2word', action='store_true',
+                            help="Use the original word2word")
 
     parser.add_argument('--n_lines', type=int, default=100000000,
                         help="number of parallel sentences used")
@@ -69,7 +78,14 @@ def main():
                         help="number of workers used for multiprocessing")
     args = parser.parse_args()
 
-    Token2token.make(**vars(args))
+    w2w = args.word2word
+    del args.word2word
+    if w2w:
+        Token2token.make(**vars(args))
+    else:
+        del args.tokenizer1
+        del args.tokenizer2
+        Word2word.make(**vars(args))
 
 
 if __name__ == "__main__":
@@ -77,8 +93,8 @@ if __name__ == "__main__":
     # srhr = Word2word(lang1="sr", lang2="hr")
 
     #enfr = Token2token.make(lang1="en", lang2="fr", tokenizer1="Qwen/Qwen3.5-0.8B", tokenizer2="Qwen/Qwen3.5-0.8B", n_lines=500000)
-    enfr = Word2word.make(lang1="en", lang2="fr", n_lines=500000)
+    # enfr = Word2word.make(lang1="en", lang2="fr", n_lines=500000)
     # Token2token.make(lang1="sr", lang2="hr", tokenizer1="jerteh/Jerteh-81", tokenizer2="jerteh/Jerteh-81", n_lines=1000000)
     # srhr = Token2token(lang1="sr", lang2="hr")
-    print(enfr("apple"))
-    #main()
+    # print(enfr("apple"))
+    main()

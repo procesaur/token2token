@@ -126,10 +126,18 @@ class Token2token:
 
         print("Step 1. Load tokenizers and build dataset")
         lang1, lang2 = sorted([lang1, lang2])
-        t1name = tokenizer1
-        t2name = tokenizer2
-        tokenizer1 = load_hf_tokenizer(t1name)
-        tokenizer2 = load_hf_tokenizer(t2name)
+        if isinstance(tokenizer1, str):
+            t1name = tokenizer1
+            tokenizer1 = load_hf_tokenizer(t1name)
+        else:
+            t1name = tokenizer1.pretrained_model_name_or_path
+            
+        if isinstance(tokenizer2, str):
+            t2name = tokenizer2
+            tokenizer2 = load_hf_tokenizer(t2name)
+        else:
+            t2name = tokenizer2.pretrained_model_name_or_path
+
         dataset = build_dataset(lang1, lang2, tokenizer1, tokenizer2, datapref, column1, column2)
 
         # input savedir if provided, system default otherwise

@@ -47,7 +47,6 @@ def perform_extension(
         new_vocab=extension_tokens["vocab"],
         new_merges=extension_tokens["merges"],
         n_tokens=None,
-        keep_added_token_positions=False,
     )
 
     if lang1 != lang2:

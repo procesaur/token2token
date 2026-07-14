@@ -1,40 +1,64 @@
-from collections import defaultdict
+from collections import defaultdict, Counter
 from typing import Iterable, Optional
-
 from tqdm import tqdm
 from heapq import heappush, heappop
 
 
-def group_tokens(text, tokenizer):
-    pre_tokenizer = tokenizer._tokenizer.pre_tokenizer
-    if tokenizer._tokenizer.pre_tokenizer is None:
-        raise ValueError("Tokenizer must have a pre-tokenizer")
+def fast_group_tokens_and_frequencies(corpus, tokenizer, batch_size=10000):
+    """
+    Bypasses slow Python loops by feeding batches directly to HF's Rust engine,
+    utilizing multi-threading to compute word-token frequencies.
+    """
+    split_freqs = Counter()
+    backend_tokenizer = tokenizer._tokenizer
+    batch = []
+    
+    for text in tqdm(corpus, desc="Batch pre-tokenizing (Rust-accelerated)"):
+        if backend_tokenizer.normalizer is not None:
+            text = backend_tokenizer.normalizer.normalize_str(text)
+        
+        batch.append(text)
+        
+        if len(batch) >= batch_size:
+            encodings = backend_tokenizer.encode_batch(batch)
+            for encoding in encodings:
+                words_dict = {}
+                for token, word_id in zip(encoding.tokens, encoding.word_ids):
+                    if word_id is None:
+                        continue
+                    if word_id not in words_dict:
+                        words_dict[word_id] = []
+                    words_dict[word_id].append(token)
+                
+                for word_tokens in words_dict.values():
+                    split_freqs[tuple(word_tokens)] += 1
+            batch = []
 
-    if tokenizer._tokenizer.normalizer is not None:
-        text = tokenizer._tokenizer.normalizer.normalize_str(text)
+    if batch:
+        encodings = backend_tokenizer.encode_batch(batch)
+        for encoding in encodings:
+            words_dict = {}
+            for token, word_id in zip(encoding.tokens, encoding.word_ids):
+                if word_id is None:
+                    continue
+                if word_id not in words_dict:
+                    words_dict[word_id] = []
+                words_dict[word_id].append(token)
+            
+            for word_tokens in words_dict.values():
+                split_freqs[tuple(word_tokens)] += 1
 
-    pre_tokenized = [x[0] for x in pre_tokenizer.pre_tokenize_str(text)]
-
-    grouped_new_words = []
-    for word in pre_tokenized:
-        group = [token.value for token in tokenizer._tokenizer.model.tokenize(word)]
-        if len(group) > 0:
-            grouped_new_words.append(group)
-
-    return list(map(tuple, grouped_new_words))
-
+    return split_freqs
 
 def compute_pair_freqs(splits, word_freqs):
     pair_freqs = defaultdict(int)
     where_to_update = defaultdict(set)
 
-    for word, freq in word_freqs.items():
-        split = splits[word]
-        if len(split) == 1:
+    for word, split in splits.items():
+        if len(split) < 2:
             continue
-
-        for i in range(len(split) - 1):
-            pair = (split[i], split[i + 1])
+        freq = word_freqs[word]
+        for pair in zip(split[:-1], split[1:]):
             pair_freqs[pair] += freq
             where_to_update[pair].add(word)
     return pair_freqs, where_to_update
@@ -42,42 +66,61 @@ def compute_pair_freqs(splits, word_freqs):
 
 def merge_pair(a, b, splits, word_freqs, pair_freqs, queue, where_to_update):
     updated_pairs = defaultdict(int)
+    target_pair = (a, b)
+    words_to_modify = list(where_to_update[target_pair])
 
-    for word in list(where_to_update[(a, b)]):
+    for word in words_to_modify:
         freq = word_freqs[word]
         split = splits[word]
-        if len(split) == 1:
+        if len(split) < 2:
             continue
 
-        split = list(split)
+        new_split = []
         i = 0
-        while i < len(split) - 1:
-            if split[i] == a and split[i + 1] == b:
-                new_token = a + b
-                split = split[:i] + [new_token] + split[i + 2:]
+        n = len(split)
+        while i < n:
+            if i < n - 1 and split[i] == a and split[i + 1] == b:
+                new_split.append(a + b)
+                i += 2
             else:
+                new_split.append(split[i])
                 i += 1
+        
+        new_split = tuple(new_split)
+        
+        prev_pairs = list(zip(split[:-1], split[1:]))
+        new_pairs = list(zip(new_split[:-1], new_split[1:]))
+        
+        prev_set = set(prev_pairs)
+        new_set = set(new_pairs)
 
-        prev_pairs = list(zip(splits[word][:-1], splits[word][1:]))
-        splits[word] = split
-        new_pairs = list(zip(splits[word][:-1], splits[word][1:]))
-        for pair in set(new_pairs) - set(prev_pairs):
-            where_to_update[pair].add(word)
-        for pair in set(prev_pairs) - set(new_pairs):
-            where_to_update[pair].discard(word)
+        for pair in new_set:
+            if pair not in prev_set:
+                where_to_update[pair].add(word)
+        for pair in prev_set:
+            if pair not in new_set:
+                where_to_update[pair].discard(word)
+
         for pair in prev_pairs:
             updated_pairs[pair] -= freq
         for pair in new_pairs:
             updated_pairs[pair] += freq
+            
+        splits[word] = new_split
 
     for pair, change in updated_pairs.items():
+        if change == 0:
+            continue
         new_freq = pair_freqs.get(pair, 0) + change
         pair_freqs[pair] = new_freq
         if new_freq > 0:
             heappush(queue, (-new_freq, pair))
 
-    del pair_freqs[(a, b)]
-    del where_to_update[(a, b)]
+    if target_pair in pair_freqs:
+        del pair_freqs[target_pair]
+    if target_pair in where_to_update:
+        del where_to_update[target_pair]
+        
     return splits
 
 
@@ -86,6 +129,7 @@ def train_vocab_extension(
         corpus: Iterable[str],
         extension_size: int,
         max_token_length: Optional[int] = None,
+        batch_size: int = 10000,
 ) -> dict:
     """
     :param tokenizer: The tokenizer to continually train
@@ -97,12 +141,12 @@ def train_vocab_extension(
     split_freqs = defaultdict(int)
 
     check_token = lambda a, b: True
-    group_tokens_func = group_tokens
-
-    for text in tqdm(corpus, desc="computing frequencies", mininterval=1):
-        grouped_tokens = group_tokens_func(text, tokenizer)
-        for word in grouped_tokens:
-            split_freqs[word] += 1
+    
+    split_freqs = fast_group_tokens_and_frequencies(
+            corpus=corpus, 
+            tokenizer=tokenizer, 
+            batch_size=batch_size
+        )
 
     splits = {"".join(split): split for split in split_freqs}
     word_freqs = {"".join(split): freq for split, freq in split_freqs.items()}

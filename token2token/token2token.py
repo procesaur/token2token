@@ -3,14 +3,9 @@ import os
 from json import dump, load
 from time import time
 
-from token2token.utils import build_dataset, get_savedir
+from token2token.utils import build_dataset, get_savedir, load_hf_tokenizer
 from token2token.methods import rerank, rerank_mp, get_trans_pmi, get_vocab, update_dicts
-from transformers import AutoTokenizer
 
-
-def load_hf_tokenizer(name):
-    tokenizer = AutoTokenizer.from_pretrained(name)
-    return tokenizer
 
 class Token2token:
     """The token2token class.

@@ -3,6 +3,12 @@ import platform
 import requests
 from os import path as px, makedirs
 from datasets import load_dataset
+from transformers import AutoTokenizer
+
+
+def load_hf_tokenizer(name):
+    tokenizer = AutoTokenizer.from_pretrained(name)
+    return tokenizer
 
 
 def get_savedir(savedir=None):
@@ -12,7 +18,7 @@ def get_savedir(savedir=None):
 
     pf = platform.system()
     if pf == "Windows":
-        savedir = "C:\word2word"
+        savedir = "C:/word2word"
     else:
         homedir = px.expanduser("~")
         savedir = px.join(homedir, ".word2word")

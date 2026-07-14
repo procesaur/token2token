@@ -54,4 +54,4 @@ def main():
     perform_extension(**vars(args))
 
 if __name__ == "__main__":
-    main()
+    perform_extension(lang1="sr", lang2="ru", tokenizer="Qwen/Qwen3.5-0.8B", dataset="procesaur/sr-tokenizer-test", prune_target="cyr")

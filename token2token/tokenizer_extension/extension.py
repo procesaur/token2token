@@ -5,7 +5,7 @@ from typing import Optional, List, Tuple, Dict, Union
 from tokenizers import pre_tokenizers
 from transformers.convert_slow_tokenizer import generate_merges
 
-from tokenizer_extension.utils import get_ordered_vocab, get_vocab_and_merges, replace_tokenizer_vocab_merges, \
+from .utils import get_ordered_vocab, get_vocab_and_merges, replace_tokenizer_vocab_merges, \
     get_added_tokens_vocab, update_postprocessor_special_tokens
 
 

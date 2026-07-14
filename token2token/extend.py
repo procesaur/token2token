@@ -1,7 +1,7 @@
-from tokenizer_extension.pruning import prune_tokenizer
-from tokenizer_extension.train_vocab_extension import train_vocab_extension
-from tokenizer_extension.ds import ds_iterator
-from tokenizer_extension.extension import extend_tokenizer
+from .tokenizer_extension.pruning import prune_tokenizer
+from .tokenizer_extension.train_vocab_extension import train_vocab_extension
+from .tokenizer_extension.ds import ds_iterator
+from .tokenizer_extension.extension import extend_tokenizer
 
 from token2token import Token2token
 
@@ -30,7 +30,10 @@ def perform_extension(
         num_workers: int = 16,
 ):
     pruned_tokenizer, n_pruned = prune_tokenizer(tokenizer, prune_target)
-    extension_size = min(extension_size, n_pruned)
+    if extension_size:
+        extension_size = min(extension_size, n_pruned)
+    else:
+        extension_size = n_pruned
     dataset = ds_iterator(dataset, split, limit=1000)
     
     extension_tokens = train_vocab_extension(

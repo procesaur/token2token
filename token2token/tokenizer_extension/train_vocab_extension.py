@@ -85,33 +85,19 @@ def train_vocab_extension(
         tokenizer,
         corpus: Iterable[str],
         extension_size: int,
-        is_sentencepiece: bool = False,
         max_token_length: Optional[int] = None,
-        sp_kwargs: Optional[dict] = None,
 ) -> dict:
     """
     :param tokenizer: The tokenizer to continually train
     :param corpus: Training corpus
     :param extension_size: The Number of tokens to add to the vocabulary
-    :param is_sentencepiece: Is the tokenizer that is extended a (HuggingFace) SentencePiece tokenizer
     :param max_token_length: maximum length of a token created
-    :param sp_kwargs: SentencePiece specific kwargs
     :return: Dictionary with keys: 'vocab', 'merges', 'pair_freqs', 'word_freqs'
     """
     split_freqs = defaultdict(int)
 
-    if is_sentencepiece:
-        from .sentencepiece_utils import group_tokens as group_tokens_sentencepiece
-        from .sentencepiece_utils import TrainerSpec, is_valid_merge
-        if sp_kwargs is None:
-            sp_kwargs = {}
-        cfg = TrainerSpec(**sp_kwargs)
-        check_token = lambda a, b: is_valid_merge(a, b, cfg)
-        group_tokens_func = lambda txt, tok: group_tokens_sentencepiece(txt, tok, **sp_kwargs)
-    else:
-        check_token = lambda a, b: True
-        group_tokens_func = group_tokens
-
+    check_token = lambda a, b: True
+    group_tokens_func = group_tokens
 
     for text in tqdm(corpus, desc="computing frequencies", mininterval=1):
         grouped_tokens = group_tokens_func(text, tokenizer)

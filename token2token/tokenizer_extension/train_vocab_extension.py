@@ -4,23 +4,29 @@ from tqdm import tqdm
 from heapq import heappush, heappop
 
 
+from collections import Counter
+
 def fast_group_tokens_and_frequencies(corpus, tokenizer, batch_size=10000):
-    """
-    Bypasses slow Python loops by feeding batches directly to HF's Rust engine,
-    utilizing multi-threading to compute word-token frequencies.
-    """
     split_freqs = Counter()
     backend_tokenizer = tokenizer._tokenizer
-    batch = []
     
-    for text in tqdm(corpus, desc="Batch pre-tokenizing (Rust-accelerated)"):
-        if backend_tokenizer.normalizer is not None:
-            text = backend_tokenizer.normalizer.normalize_str(text)
-        
-        batch.append(text)
-        
-        if len(batch) >= batch_size:
+    # Convert corpus to a list to easily slice
+    corpus_list = list(corpus) if not isinstance(corpus, list) else corpus
+    total_docs = len(corpus_list)
+
+    # Initialize tqdm with the total number of items (documents), not batches
+    with tqdm(total=total_docs, desc="Batch pre-tokenizing (Rust-accelerated)") as pbar:
+        for i in range(0, total_docs, batch_size):
+            batch = corpus_list[i : i + batch_size]
+            
+            # Apply normalization
+            if backend_tokenizer.normalizer is not None:
+                batch = [backend_tokenizer.normalizer.normalize_str(text) for text in batch]
+            
+            # Rust processes the batch in parallel
             encodings = backend_tokenizer.encode_batch(batch)
+            
+            # Process outputs
             for encoding in encodings:
                 words_dict = {}
                 for token, word_id in zip(encoding.tokens, encoding.word_ids):
@@ -32,21 +38,9 @@ def fast_group_tokens_and_frequencies(corpus, tokenizer, batch_size=10000):
                 
                 for word_tokens in words_dict.values():
                     split_freqs[tuple(word_tokens)] += 1
-            batch = []
-
-    if batch:
-        encodings = backend_tokenizer.encode_batch(batch)
-        for encoding in encodings:
-            words_dict = {}
-            for token, word_id in zip(encoding.tokens, encoding.word_ids):
-                if word_id is None:
-                    continue
-                if word_id not in words_dict:
-                    words_dict[word_id] = []
-                words_dict[word_id].append(token)
             
-            for word_tokens in words_dict.values():
-                split_freqs[tuple(word_tokens)] += 1
+            # Update the progress bar by the size of the batch we just finished
+            pbar.update(len(batch))
 
     return split_freqs
 

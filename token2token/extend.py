@@ -1,10 +1,10 @@
 from .tokenizer_extension.pruning import prune_tokenizer
 from .tokenizer_extension.train_vocab_extension import train_vocab_extension
-from .tokenizer_extension.ds import ds_iterator
+from token2token.utils import ds_iterator
 from .tokenizer_extension.extension import extend_tokenizer
 
 from token2token import Token2token
-
+from json import dump
 
 n_lines=10000
 
@@ -29,7 +29,11 @@ def perform_extension(
         savedir: str = None,
         num_workers: int = 16,
 ):
-    pruned_tokenizer, n_pruned = prune_tokenizer(tokenizer, prune_target)
+    pruned_tokenizer, n_pruned, prunned_map = prune_tokenizer(tokenizer, prune_target)
+
+    pruned_tokenizer.save_pretrained("./my-tokenizer")
+
+
     if extension_size:
         extension_size = min(extension_size, n_pruned)
     else:
@@ -42,12 +46,16 @@ def perform_extension(
         extension_size=extension_size
     )
 
+    print("new vocab and merges prepared, extending now...")
+
     extended_tokenizer = extend_tokenizer(
         pruned_tokenizer,
         new_vocab=extension_tokens["vocab"],
         new_merges=extension_tokens["merges"],
-        n_tokens=None,
+        prunned_ids=list(prunned_map.values()) 
     )
+
+    extended_tokenizer.save("./my-tokenizer/tokenizer.json")
 
     if lang1 != lang2:
         t2t = Token2token.make(lang1, lang2, extended_tokenizer, tokenizer, datapref=datapref, column1=column1, column2=column2, num_workers=num_workers, savedir=savedir, n_lines=n_lines)

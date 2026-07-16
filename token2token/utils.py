@@ -4,6 +4,8 @@ import requests
 from os import path as px, makedirs
 from datasets import load_dataset
 from transformers import AutoTokenizer
+from typing import Dict, List, Tuple
+from json import loads
 
 
 def load_hf_tokenizer(name):
@@ -66,3 +68,21 @@ def build_dataset(lang1, lang2, tokenizer1, tokenizer2, datapref=None, column1="
 
     ds = ds.map(preprocess)
     return ds
+
+
+def ds_iterator(id, split="train", streaming=True, limit=None, fn=None):
+    dataset = load_dataset(id, split=split, streaming=streaming)
+    if limit:
+        dataset = dataset.take(limit)
+    for example in dataset:
+        if fn:
+            yield fn(example["text"])
+        else:
+            yield example["text"]
+
+
+def get_vocab_and_merges(tokenizer) -> Tuple[Dict[str, int], List[Tuple[str, str]]]:
+    cfg = loads(tokenizer._tokenizer.to_str())
+    merges = [tuple(x) if isinstance(x, list) else tuple(x.split(" ")) for x in cfg["model"]["merges"]]
+    vocab = cfg["model"]["vocab"]
+    return vocab, merges

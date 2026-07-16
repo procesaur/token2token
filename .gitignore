@@ -107,3 +107,4 @@ venv.bak/
 .idea/
 /extended-tokenizer
 perfect_continuation_tokenizer.json
+/my-tokenizer

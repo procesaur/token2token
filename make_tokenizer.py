@@ -54,4 +54,11 @@ def main():
     perform_extension(**vars(args))
 
 if __name__ == "__main__":
-    perform_extension(lang1="sr", lang2="ru", tokenizer="Qwen/Qwen3.5-0.8B", dataset="procesaur/sr-tokenizer-test", prune_target="cyr")
+    #perform_extension(lang1="sr", lang2="ru", tokenizer="Qwen/Qwen3.5-0.8B", dataset="procesaur/sr-tokenizer-test", prune_target="cyr")
+    from transformers import PreTrainedTokenizerFast
+
+    # Load directly from the directory containing your 'tokenizer.json'
+    tokenizer = PreTrainedTokenizerFast.from_pretrained("./my-tokenizer")
+
+    # Test it
+    print(tokenizer("Trebaju mi potvrde"))

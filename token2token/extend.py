@@ -62,6 +62,8 @@ def perform_extension(
     extended_tokenizer = AutoTokenizer.from_pretrained("./my-tokenizer")
     pruned_tokenizer = AutoTokenizer.from_pretrained("./my-pruned-tokenizer")
 
+    # Ovde fali cuvanje new_vocab map, a možda fali i još nešto?
+
     if lang1 != lang2:
         t2t = Token2token.make(lang1, lang2, extended_tokenizer, pruned_tokenizer, datapref=datapref, column1=column1, column2=column2, num_workers=num_workers, savedir=savedir, n_lines=n_lines)
         if no_overlap:

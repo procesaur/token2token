@@ -22,9 +22,9 @@ def main():
     parser.add_argument('--lang2', type=str, required=True,
                         help="ISO 639-1 code of language. "
                              "See `http://opus.nlpl.eu/OpenSubtitles2018.php`")
-    parser.add_argument('--tokenizer', type=str, required=True,
+    parser.add_argument('--model', type=str, required=True,
                         help="identifier of a huggingface model, or a path to dir with tokenizer.json you want to extend")
-    parser.add_argument('--dataset', type=str, required=True,
+    parser.add_argument('--dataset', type=str, default=None,
                         help="data prefix to a custom parallel corpus. "
                              "builds a bilingual lexicon using OpenSubtitles2018 "
                              "unless this option is provided.")
@@ -54,11 +54,5 @@ def main():
     perform_extension(**vars(args))
 
 if __name__ == "__main__":
-    #perform_extension(lang1="sr", lang2="ru", tokenizer="Qwen/Qwen3.5-0.8B", dataset="procesaur/sr-tokenizer-test", prune_target="cyr")
-    from transformers import PreTrainedTokenizerFast
-
-    # Load directly from the directory containing your 'tokenizer.json'
-    tokenizer = PreTrainedTokenizerFast.from_pretrained("./my-tokenizer")
-
-    # Test it
-    print(tokenizer("Trebaju mi potvrde"))
+    #perform_extension(lang1="sr", lang2="ru", model="Qwen/Qwen3.5-0.8B", dataset="procesaur/sr-tokenizer-test", prune_target="cyr")
+    perform_extension(lang1="sr", lang2="ru", model="Qwen/Qwen3.5-0.8B", prune_target="cyr")

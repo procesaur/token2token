@@ -18,6 +18,7 @@ def extend_tokenizer(
     :return: the tokenizer object that was extended inplace
     """
     tokenizer_json = loads(tokenizer._tokenizer.to_str())
+    new_vocab_map = {}
 
     if isinstance(new_vocab, dict):
         new_vocab = list(new_vocab.keys())
@@ -33,6 +34,7 @@ def extend_tokenizer(
             if new_token is None:
                 break
             vocab_items[idx][0] = new_token
+            new_vocab_map[new_token] = idx
 
     combined_vocab = dict(vocab_items)
     tokenizer_json["model"]["vocab"] = combined_vocab
@@ -65,4 +67,4 @@ def extend_tokenizer(
 
     if len(set(tokenizer_json["model"]["vocab"].keys())) != len(set(tokenizer_json["model"]["vocab"].values())):
         raise ValueError("Tokens with the same ID found in vocabulary.")
-    return Tokenizer.from_str(dumps(tokenizer_json))
+    return Tokenizer.from_str(dumps(tokenizer_json)), new_vocab_map

@@ -108,3 +108,4 @@ venv.bak/
 /extended-tokenizer
 perfect_continuation_tokenizer.json
 /my-tokenizer
+/my-pruned-tokenizer

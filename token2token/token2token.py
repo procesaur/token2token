@@ -24,16 +24,16 @@ class Token2token:
         my_en2fr = Token2token.make("sr", "hr", "procesaur/gpt2-srlat", "procesaur/gpt2-srlat", "Helsinki-NLP/OpenSubtitles2024", column1="src_text", column2="tgt_text")
     """
 
-    def __init__(self, lang1=None, lang2=None, token2x=None, y2token=None, x2ys=None, path=None,):
+    def __init__(self, lang1=None, lang2=None, token2x=None, token2y=None, x2token=None, y2token=None, x2ys=None, path=None,):
         """Loads this object with a custom-built token mapping.
 
         savedir is the directory containing {lang1}-{lang2}.pkl files
         built from the make function.
         """
 
-        if all(d is not None for d in [lang1, lang2, token2x, y2token, x2ys]):
+        if all(d is not None for d in [lang1, lang2, token2x, token2y, x2token, y2token, x2ys]):
             # load a custom-built token2token bilingual tool mapping
-            self.lang1, self.lang2, self.token2x, self.y2token, self.x2ys = lang1, lang2, token2x, y2token, x2ys
+            self.lang1, self.lang2, self.token2x, self.token2y, self.x2token, self.y2token, self.x2ys = lang1, lang2, token2x, token2y, x2token, y2token, x2ys
             return  
 
         if not path:
@@ -121,18 +121,24 @@ class Token2token:
         """Build a token mapping using a parallel corpus."""
 
         print("Step 1. Load tokenizers and build dataset")
-        lang1, lang2 = sorted([lang1, lang2])
+        
         if isinstance(tokenizer1, str):
             t1name = tokenizer1
             tokenizer1 = load_hf_tokenizer(t1name)
         else:
-            t1name = tokenizer1.pretrained_model_name_or_path
+            try:
+                t1name = tokenizer1.pretrained_model_name_or_path
+            except:
+                t1name = getattr(tokenizer1, "name_or_path", "unknown_model")
             
         if isinstance(tokenizer2, str):
             t2name = tokenizer2
             tokenizer2 = load_hf_tokenizer(t2name)
         else:
-            t2name = tokenizer2.pretrained_model_name_or_path
+            try:
+                t2name = tokenizer2.pretrained_model_name_or_path
+            except:
+                t2name = getattr(tokenizer2, "name_or_path", "unknown_model")
 
         dataset = build_dataset(lang1, lang2, tokenizer1, tokenizer2, datapref, column1, column2, split=split)
 
@@ -156,14 +162,14 @@ class Token2token:
         print("Step 5. Translation using CPE scores")
         if rerank_impl == "simple":
             x2ys_cpe = rerank(x2ys, x2cnt, x2xs, rerank_width, n_translations)
-            y2xs_cpe = rerank(y2xs, y2cnt, y2ys, rerank_width, n_translations)
+            # y2xs_cpe = rerank(y2xs, y2cnt, y2ys, rerank_width, n_translations)
         elif rerank_impl == "multiprocessing":
             x2ys_cpe = rerank_mp(
                 x2ys, x2cnt, x2xs, rerank_width, n_translations, num_workers
             )
-            y2xs_cpe = rerank_mp(
-                y2xs, y2cnt, y2ys, rerank_width, n_translations, num_workers
-            )
+            # y2xs_cpe = rerank_mp(
+            #     y2xs, y2cnt, y2ys, rerank_width, n_translations, num_workers
+            # )
         else:
             raise ValueError("unrecognized --rerank_impl argument. "
                              "Options: simple, multiprocessing")
@@ -171,7 +177,7 @@ class Token2token:
 
         print("Saving...")
         Token2token.save(lang1, lang2, savedir, token2x, token2y, x2token,
-                       x2ys_cpe, y2token, y2xs_cpe, t1name, t2name)
+                       x2ys_cpe, y2token, t1name, t2name)
 
         if save_pmi:
             print("Step 5-1. Translation using PMI scores")
@@ -191,10 +197,10 @@ class Token2token:
                            x2ys_pmi, y2token, y2xs_pmi, t1name, t2name)
 
         print("Done!")
-        return cls(lang1, lang2, token2x, y2token, x2ys_cpe)
+        return cls(lang1, lang2, token2x, token2y, x2token, y2token, x2ys_cpe)
 
     @staticmethod
-    def save(lang1, lang2, savedir, token2x, token2y, x2token, x2ys, y2token, y2xs, t1name, t2name):
+    def save(lang1, lang2, savedir, token2x, token2y, x2token, x2ys, y2token, t1name, t2name):
 
         def _dump_json(path, src_vocab, tgt_vocab, translations, src_lang, tgt_lang,
                     id2token_src, id2token_tgt, t1name=t1name, t2name=t2name):
@@ -232,20 +238,6 @@ class Token2token:
             tgt_lang=lang2,
             id2token_src=x2token,
             id2token_tgt=y2token,
-            t1name=t1name,
-            t2name=t2name
-        )
-
-        # lang2 → lang1
-        _dump_json(
-            os.path.join(savedir, f"{lang2}-{lang1}.json"),
-            src_vocab=token2y,
-            tgt_vocab=token2x,
-            translations=y2xs,
-            src_lang=lang2,
-            tgt_lang=lang1,
-            id2token_src=y2token,
-            id2token_tgt=x2token,
             t1name=t1name,
             t2name=t2name
         )

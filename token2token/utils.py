@@ -39,16 +39,26 @@ def build_dataset(lang1, lang2, tokenizer1, tokenizer2, datapref=None, column1="
     """Download corpora from OpenSubtitles2024.
     :return huggingface dataset
     """
+
+    reverse = False
+    datasetlang1, datasetllang2 = sorted([lang1, lang2])
+
     if column1 == None:
         column1 = "src_text"
     if column2 == None:
         column2 = "tgt_text"
 
-    def preprocess(example):
-        return {
-            lang1: tokenizer1.tokenize(example[column1]),
-            lang2: tokenizer2.tokenize(example[column2])
-        }
+    def preprocess(example, reverse):
+        if reverse:
+            return {
+                lang1: tokenizer1.tokenize(example[column1]),
+                lang2: tokenizer2.tokenize(example[column2])
+            }
+        else:
+            return {
+                lang1: tokenizer1.tokenize(example[column2]),
+                lang2: tokenizer2.tokenize(example[column1])
+            }
 
     if datapref:
         ds = load_dataset(
@@ -56,17 +66,19 @@ def build_dataset(lang1, lang2, tokenizer1, tokenizer2, datapref=None, column1="
             split=split,
             streaming=True
         )
-        
+
     else:
+        if datasetlang1 != lang1 and not datapref:
+            reverse = True
         ds = load_dataset(
             "Helsinki-NLP/OpenSubtitles2024",
             split="train",
             trust_remote_code=True,
-            data_files=f"dev/{lang1}-{lang2}/{lang1}-{lang2}.parquet",
+            data_files=f"dev/{datasetlang1}-{datasetllang2}/{datasetlang1}-{datasetllang2}.parquet",
             streaming=True
         )
 
-    ds = ds.map(preprocess)
+    ds = ds.map(preprocess, reverse)
     return ds
 
 
@@ -88,10 +100,45 @@ def get_vocab_and_merges(tokenizer) -> Tuple[Dict[str, int], List[Tuple[str, str
     return vocab, merges
 
 def j_dump(obj, path):
-    with open("./my-tokenizer/new_vocab_map.json", "w", encoding="utf-8") as jf:
+    with open(path, "w", encoding="utf-8") as jf:
         dump(obj, jf, ensure_ascii=False)
 
 def j_read(path):
-    with open("./my-tokenizer/new_vocab_map.json", "r", encoding="utf-8") as jf:
+    with open(path, "r", encoding="utf-8") as jf:
         obj = load(jf)
     return obj
+
+cyrillic_to_latin = {
+    # 2-character mappings
+    "Љ": "Lj", "љ": "lj",
+    "Њ": "Nj", "њ": "nj",
+    "Џ": "Dž", "џ": "dž",
+    # 1-character mappings
+    "А": "A", "а": "a",
+    "Б": "B", "б": "b",
+    "В": "V", "в": "v",
+    "Г": "G", "г": "g",
+    "Д": "D", "д": "d",
+    "Ђ": "Đ", "ђ": "đ",
+    "Е": "E", "е": "e",
+    "Ж": "Ž", "ж": "ž",
+    "З": "Z", "з": "z",
+    "И": "I", "и": "i",
+    "Ј": "J", "ј": "j",
+    "К": "K", "к": "k",
+    "Л": "L", "л": "l",
+    "М": "M", "м": "m",
+    "Н": "N", "н": "n",
+    "О": "O", "о": "o",
+    "П": "P", "п": "p",
+    "Р": "R", "р": "r",
+    "С": "S", "с": "s",
+    "Т": "T", "т": "t",
+    "Ћ": "Ć", "ћ": "ć",
+    "У": "U", "у": "u",
+    "Ф": "F", "ф": "f",
+    "Х": "H", "х": "h",
+    "Ц": "C", "ц": "c",
+    "Ч": "Č", "ч": "č",
+    "Ш": "Š", "ш": "š"
+}

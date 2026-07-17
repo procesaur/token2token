@@ -1,7 +1,8 @@
-from token2token.utils import load_hf_tokenizer, get_vocab_and_merges
+from token2token.utils import load_hf_tokenizer, get_vocab_and_merges, cyrillic_to_latin
 from json import loads, dumps
 from tokenizers import Tokenizer
 from re import compile
+from tokenizers.normalizers import Sequence, Replace
 
 
 patterns = {
@@ -12,7 +13,7 @@ patterns = {
 } 
 
 
-def prune_tokenizer(tokenizer_name, prune_target="both"):
+def prune_tokenizer(tokenizer_name, prune_target="both", no_translit=False):
     if prune_target not in patterns:
         raise ValueError(f"unrecognized --prune_target argument. Options: {', '.join(list(patterns.keys()))}")
 
@@ -49,4 +50,19 @@ def prune_tokenizer(tokenizer_name, prune_target="both"):
     ]
 
     tokenizer._tokenizer = Tokenizer.from_str(dumps(cfg))
+
+    if not no_translit:
+        # --- 1. Build the normalizer chain ---
+        translit_normalizers = [Replace(cyr, lat) for cyr, lat in cyrillic_to_latin.items()]
+
+        # Get the existing normalizer from the backend before we overwrite it
+        existing_normalizer = tokenizer._tokenizer.normalizer  # <-- Fixed here
+
+        if existing_normalizer is not None:
+            new_normalizer = Sequence([Sequence(translit_normalizers), existing_normalizer])
+        else:
+            new_normalizer = Sequence(translit_normalizers)
+
+        tokenizer._tokenizer.normalizer = new_normalizer
+
     return tokenizer, i, pruned_tokens_map

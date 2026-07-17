@@ -10,21 +10,22 @@ def id_mapping(tokenizer, extended_tokenizer, t2t, no_overlap):
     return {}
 
 
-def id_mapping_mean(pruned_tokenizer, new_vocab_map):
+def id_mapping_mean(pruned_tokenizer, extended_tokenizer, new_vocab_map):
+    new_vocab_map = {extended_tokenizer.decode([y]): y for x, y in new_vocab_map.items()}
     strings, keys = zip(*new_vocab_map.items())
     batch_encodings = pruned_tokenizer(list(strings), add_special_tokens=False)
     return dict(zip(keys, batch_encodings["input_ids"]))
 
 
 def extract_old_vocab(t2t, new_vocab_map):
-    src_tokens = t2t.token2y
-    tgt_tokens = t2t.token2x
+    src_tokens = t2t.token2x
+    tgt_tokens = t2t.token2y
     return {token: id for token, id in src_tokens.items() if token not in tgt_tokens and token not in new_vocab_map}
 
 def extract_mapping(t2t, new_vocab_map, tokenizer):
     id_map = {}
     for token, id in new_vocab_map.items():
-        if token not in t2t.translations:
+        if token not in t2t.x2ys:
             id_map[id] = []
         else:
             t_mapping = t2t(token)
@@ -58,20 +59,18 @@ def reinitialize_weights(
         savedir = get_savedir()
 
     map_save_path = px.join(savedir, "id_mapping.json")
-    
-
     extended_tokenizer = AutoTokenizer.from_pretrained(extended_tokenizer_path)
     pruned_tokenizer = AutoTokenizer.from_pretrained(pruned_tokenizer_path)
     new_vocab_map = j_read(new_vocab_map_path)
 
     if lang1 == lang2:
-        id_map = id_mapping_mean(pruned_tokenizer, new_vocab_map)
+        id_map = id_mapping_mean(pruned_tokenizer, extended_tokenizer, new_vocab_map)
 
     else:
         if reinitialize_old:
             overlap_t2t = Token2token.make(lang1, no_overlap, extended_tokenizer, extended_tokenizer, datapref=datapref, column1=column1, column2=column2, num_workers=num_workers, savedir=savedir, n_lines=n_lines)
-        additional_mapping = extract_old_vocab(overlap_t2t, new_vocab_map)
-        new_vocab_map.update(additional_mapping)
+            additional_mapping = extract_old_vocab(overlap_t2t, new_vocab_map)
+            new_vocab_map.update(additional_mapping)
 
         t2t = Token2token.make(lang1, lang2, extended_tokenizer, pruned_tokenizer, datapref=datapref, column1=column1, column2=column2, split=split, num_workers=num_workers, savedir=savedir, n_lines=n_lines)
         id_map = extract_mapping(t2t, new_vocab_map, extended_tokenizer)

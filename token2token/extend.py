@@ -12,6 +12,7 @@ def perform_extension(
         split: str = "train",
         prune_target: str = "both",
         extension_size: int = None,
+        no_translit: bool = False,
         savedir: str = None,
         **kwargs
 ):
@@ -24,7 +25,7 @@ def perform_extension(
     vocab_map_save_path = px.join(extended_save_path, "new_vocab_map.json")
 
     if dataset:
-        pruned_tokenizer, n_pruned, prunned_map = prune_tokenizer(model, prune_target)
+        pruned_tokenizer, n_pruned, prunned_map = prune_tokenizer(model, prune_target, no_translit)
         pruned_tokenizer.save_pretrained(prunned_save_path)
 
         if extension_size:

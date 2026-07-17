@@ -25,10 +25,10 @@ def main():
                              "See `http://opus.nlpl.eu/OpenSubtitles2018.php`")
     parser.add_argument('--model', type=str, required=True,
                         help="identifier of a huggingface model, or a path to dir with tokenizer.json you want to extend")
+    parser.add_argument('--no_translit', dest="no_translit", action="store_true",
+                        help="Do not use tranliteration for the tokenizer")
     parser.add_argument('--dataset', type=str, default=None,
-                        help="data prefix to a custom parallel corpus. "
-                             "builds a bilingual lexicon using OpenSubtitles2018 "
-                             "unless this option is provided.")
+                        help="data prefix to a custom tokenizer training corpus.")
     parser.add_argument('--datapref', type=str, default=None,
                         help="data prefix to a custom parallel corpus. "
                              "builds a bilingual lexicon using OpenSubtitles2018 "
@@ -43,8 +43,8 @@ def main():
                         help="identifier of the first column with parallel text in a huggingface dataset")
     parser.add_argument('--column2', type=str, default="tgt_text",
                         help="identifier of the second column with parallel text in a huggingface dataset")
-    parser.add_argument('--reinitialize_old', dest="save_pmi", action="store_true",
-                        help="Save the pmi results")
+    parser.add_argument('--reinitialize_old', dest="reinitialize_old", action="store_true",
+                        help="Also change weights of the existing tokens for the new language")
     parser.add_argument('--no_overlap', type=str, default=None,
                         help="identifier of the language you want to avoid overlap with")
     parser.add_argument('--savedir', type=str, default=None,
@@ -57,12 +57,15 @@ def main():
     extended_tokenizer, pruned_tokenizer, new_vocab_map = perform_extension(**vars(args))
 
 if __name__ == "__main__":
-    # extended_tokenizer, pruned_tokenizer, new_vocab_map = perform_extension(model="Qwen/Qwen3.5-0.8B", dataset="procesaur/sr-tokenizer-test", prune_target="cyr")
-    reinitialize_weights(lang1="sr",
-        lang2="ru",
-        model="Qwen/Qwen3.5-0.8B",
-        extended_tokenizer_path="./my-tokenizer",
-        pruned_tokenizer_path="./my-pruned-tokenizer",
-        new_vocab_map_path="./my-tokenizer/new_vocab_map.json",
-        reinitialize_old=True
+   # extended_tokenizer, pruned_tokenizer, new_vocab_map = perform_extension(model="Qwen/Qwen3.5-0.8B", dataset="procesaur/sr-tokenizer-test", prune_target="cyr")
+    if True:
+        reinitialize_weights(
+            lang1="sr",
+            lang2="ru",
+            model="Qwen/Qwen3.5-0.8B",
+            extended_tokenizer_path="C:/word2word/my-tokenizer",
+            pruned_tokenizer_path="C:/word2word/my-pruned-tokenizer",
+            new_vocab_map_path="C:/word2word/my-tokenizer/new_vocab_map.json",
+            reinitialize_old=False,
+            num_workers=8
         )

@@ -12,6 +12,7 @@ Authors:
 
 import argparse
 from token2token.extend import perform_extension
+from token2token.weights import reinitialize_weights
 
 
 def main():
@@ -42,6 +43,8 @@ def main():
                         help="identifier of the first column with parallel text in a huggingface dataset")
     parser.add_argument('--column2', type=str, default="tgt_text",
                         help="identifier of the second column with parallel text in a huggingface dataset")
+    parser.add_argument('--reinitialize_old', dest="save_pmi", action="store_true",
+                        help="Save the pmi results")
     parser.add_argument('--no_overlap', type=str, default=None,
                         help="identifier of the language you want to avoid overlap with")
     parser.add_argument('--savedir', type=str, default=None,
@@ -51,8 +54,15 @@ def main():
 
     args = parser.parse_args()
 
-    perform_extension(**vars(args))
+    extended_tokenizer, pruned_tokenizer, new_vocab_map = perform_extension(**vars(args))
 
 if __name__ == "__main__":
-    #perform_extension(lang1="sr", lang2="ru", model="Qwen/Qwen3.5-0.8B", dataset="procesaur/sr-tokenizer-test", prune_target="cyr")
-    perform_extension(lang1="sr", lang2="ru", model="Qwen/Qwen3.5-0.8B", prune_target="cyr")
+    # extended_tokenizer, pruned_tokenizer, new_vocab_map = perform_extension(model="Qwen/Qwen3.5-0.8B", dataset="procesaur/sr-tokenizer-test", prune_target="cyr")
+    reinitialize_weights(lang1="sr",
+        lang2="ru",
+        model="Qwen/Qwen3.5-0.8B",
+        extended_tokenizer_path="./my-tokenizer",
+        pruned_tokenizer_path="./my-pruned-tokenizer",
+        new_vocab_map_path="./my-tokenizer/new_vocab_map.json",
+        reinitialize_old=True
+        )

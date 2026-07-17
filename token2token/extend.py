@@ -1,39 +1,31 @@
-from transformers import AutoTokenizer
-from token2token import Token2token
-from token2token.utils import ds_iterator
+from token2token.utils import ds_iterator, j_dump, get_savedir
 from .tokenizer_extension.pruning import prune_tokenizer
 from .tokenizer_extension.train_vocab_extension import train_vocab_extension
 from .tokenizer_extension.extension import extend_tokenizer
 import shutil
+from os import path as px
 
-
-n_lines=10000
-
-def id_mapping(tokenizer, extended_tokenizer, t2t, no_overlap):
-    return {}
-
-def id_mapping_mean():
-    return {}
 
 def perform_extension(
-        lang1: str,
-        lang2: str,
         model,
         dataset: str = None,
-        datapref: str = None,
         split: str = "train",
         prune_target: str = "both",
         extension_size: int = None,
-        column1: str = None,
-        column2: str = None,
-        no_overlap: str = None,
         savedir: str = None,
-        num_workers: int = 16,
+        **kwargs
 ):
+    if not savedir:  
+        savedir = get_savedir()
+        
+    prunned_save_path = px.join(savedir, "my-pruned-tokenizer")
+    extended_save_path = px.join(savedir, "my-tokenizer")
+    extend_tokenizer_jpath = px.join(extended_save_path, "tokenizer.json")
+    vocab_map_save_path = px.join(extended_save_path, "new_vocab_map.json")
 
     if dataset:
         pruned_tokenizer, n_pruned, prunned_map = prune_tokenizer(model, prune_target)
-        pruned_tokenizer.save_pretrained("./my-pruned-tokenizer")
+        pruned_tokenizer.save_pretrained(prunned_save_path)
 
         if extension_size:
             extension_size = min(extension_size, n_pruned)
@@ -47,8 +39,6 @@ def perform_extension(
             extension_size=extension_size
         )
 
-        print("new vocab and merges prepared, extending now...")
-
         extended_tokenizer, new_vocab_map = extend_tokenizer(
             pruned_tokenizer,
             new_vocab=extension_tokens["vocab"],
@@ -56,19 +46,11 @@ def perform_extension(
             prunned_ids=list(prunned_map.values()) 
         )
 
-        shutil.copytree("./my-pruned-tokenizer", "./my-tokenizer")
-        extended_tokenizer.save("./my-tokenizer/tokenizer.json")
-   
-    extended_tokenizer = AutoTokenizer.from_pretrained("./my-tokenizer")
-    pruned_tokenizer = AutoTokenizer.from_pretrained("./my-pruned-tokenizer")
+        shutil.copytree(prunned_save_path, extended_save_path, dirs_exist_ok=True)
+        extended_tokenizer.save(extend_tokenizer_jpath)
+        j_dump(new_vocab_map, vocab_map_save_path)
 
-    # Ovde fali cuvanje new_vocab map, a možda fali i još nešto?
+        print(f"Tokenizer prunned and extended. Pruned tokenizer saved to {prunned_save_path}, extended \
+         tokenizer saved to {extended_save_path}. New vocab mapping saved to {vocab_map_save_path}")
 
-    if lang1 != lang2:
-        t2t = Token2token.make(lang1, lang2, extended_tokenizer, pruned_tokenizer, datapref=datapref, column1=column1, column2=column2, num_workers=num_workers, savedir=savedir, n_lines=n_lines)
-        if no_overlap:
-            no_overlap = Token2token.make(lang1, no_overlap, extended_tokenizer, extended_tokenizer, datapref=datapref, column1=column1, column2=column2, num_workers=num_workers, savedir=savedir, n_lines=n_lines)
-    else:
-        id_map = id_mapping(model, new_vocab_map)
-
-    return extended_tokenizer
+    return extended_save_path, prunned_save_path, vocab_map_save_path

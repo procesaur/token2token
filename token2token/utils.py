@@ -5,7 +5,7 @@ from os import path as px, makedirs
 from datasets import load_dataset
 from transformers import AutoTokenizer
 from typing import Dict, List, Tuple
-from json import loads
+from json import loads, dump, load
 
 
 def load_hf_tokenizer(name):
@@ -35,7 +35,7 @@ def exists(path):
     return r.status_code == requests.codes.ok
 
 
-def build_dataset(lang1, lang2, tokenizer1, tokenizer2, datapref=None, column1="src_text", column2="tgt_text"):
+def build_dataset(lang1, lang2, tokenizer1, tokenizer2, datapref=None, column1="src_text", column2="tgt_text", split="train"):
     """Download corpora from OpenSubtitles2024.
     :return huggingface dataset
     """
@@ -53,7 +53,7 @@ def build_dataset(lang1, lang2, tokenizer1, tokenizer2, datapref=None, column1="
     if datapref:
         ds = load_dataset(
             datapref,
-            split="train",
+            split=split,
             streaming=True
         )
         
@@ -86,3 +86,12 @@ def get_vocab_and_merges(tokenizer) -> Tuple[Dict[str, int], List[Tuple[str, str
     merges = [tuple(x) if isinstance(x, list) else tuple(x.split(" ")) for x in cfg["model"]["merges"]]
     vocab = cfg["model"]["vocab"]
     return vocab, merges
+
+def j_dump(obj, path):
+    with open("./my-tokenizer/new_vocab_map.json", "w", encoding="utf-8") as jf:
+        dump(obj, jf, ensure_ascii=False)
+
+def j_read(path):
+    with open("./my-tokenizer/new_vocab_map.json", "r", encoding="utf-8") as jf:
+        obj = load(jf)
+    return obj

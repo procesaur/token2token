@@ -51,6 +51,8 @@ def main():
                         help="identifier of the first column with parallel text in a huggingface dataset")
     parser.add_argument('--column2', type=str, default="tgt_text",
                         help="identifier of the second column with parallel text in a huggingface dataset")
+    parser.add_argument('--split', type=str, default="train",
+                        help="split identifier in a huggingface dataset")
     parser.add_argument('--word2word', action='store_true',
                             help="Use the original word2word")
 

@@ -16,7 +16,7 @@ class Token2token:
         # Load a pre-computed token mapping from default path
         en2fr = Token2token("en", "fr")
         print(en2fr("Ġapple"))
-        # out: ['Ġpomme': 0.58, 'Ġpommes':0.3, 'Ġpomm': 0.11, 'Ġtart': 0.09]
+        # out: {'Ġpomme': 0.58, 'Ġpommes':0.3, 'Ġpomm': 0.11, 'Ġtart': 0.09}
 
         # Build a custom token mapping
         # (requires two aligned files, e.g., my_corpus.en, my_corpus.fr)
@@ -108,6 +108,7 @@ class Token2token:
             datapref: str = None,
             column1: str = None,
             column2: str = None,
+            split: str = "train",
             n_lines: int = 1000000,
             cutoff: int = 5000,
             rerank_width: int = 100,
@@ -133,7 +134,7 @@ class Token2token:
         else:
             t2name = tokenizer2.pretrained_model_name_or_path
 
-        dataset = build_dataset(lang1, lang2, tokenizer1, tokenizer2, datapref, column1, column2)
+        dataset = build_dataset(lang1, lang2, tokenizer1, tokenizer2, datapref, column1, column2, split=split)
 
         # input savedir if provided, system default otherwise
         if not savedir:

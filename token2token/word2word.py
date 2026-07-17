@@ -46,7 +46,7 @@ class Word2word (Token2token):
         # Load a pre-computed bilingual lexicon
         en2fr = Word2word("en", "fr")
         print(en2fr("apple"))
-        # out: ['pomme': 0.58, 'pommes':0.3, 'pommier': 0.11, 'tartes': 0.09, 'fleurs':0.01]
+        # out: {'pomme': 0.58, 'pommes':0.3, 'pommier': 0.11, 'tartes': 0.09, 'fleurs':0.01}
 
         # Build a custom bilingual lexicon
         # (requires a parallel corpus on huggingface)

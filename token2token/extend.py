@@ -6,7 +6,7 @@ import shutil
 from os import path as px
 
 
-def perform_extension(
+def adapt_tokenizer(
         model,
         dataset: str = None,
         split: str = "train",

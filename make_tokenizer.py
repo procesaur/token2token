@@ -40,5 +40,5 @@ def main():
     adapt_tokenizer(**vars(args))
 
 if __name__ == "__main__":
-    main()
+    #main()
     extended_tokenizer, pruned_tokenizer, new_vocab_map = adapt_tokenizer(model="Qwen/Qwen3.5-0.8B", dataset="procesaur/sr-tokenizer-test", prune_target="cyr", n_lines=3000)

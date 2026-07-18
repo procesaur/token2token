@@ -4,7 +4,7 @@ from token2token.utils import j_read, get_savedir, j_dump
 from os import path as px
 
 
-n_lines=10000
+n_lines=10000000
 
 def id_mapping(tokenizer, extended_tokenizer, t2t, no_overlap):
     return {}
@@ -22,15 +22,15 @@ def extract_old_vocab(t2t, new_vocab_map):
     tgt_tokens = t2t.token2y
     return {token: id for token, id in src_tokens.items() if token not in tgt_tokens and token not in new_vocab_map}
 
-def extract_mapping(t2t, new_vocab_map, tokenizer):
+def extract_mapping(t2t, new_vocab_map):
     id_map = {}
-    for token, id in new_vocab_map.items():
-        if token not in t2t.x2ys:
-            id_map[id] = []
-        else:
-            t_mapping = t2t(token)
-            mapped_token = max(t_mapping, key=t_mapping.get)
-            id_map[id] = [tokenizer.convert_tokens_to_ids(mapped_token)]
+    for id in new_vocab_map.values():
+        if id in t2t.x2ys:
+            try:
+                nid = t2t.x2ys[id][0][0]
+                id_map[id] = [nid]
+            except:
+                pass
     return id_map
 
 def extract_weights_at_idx(idx):
@@ -58,6 +58,7 @@ def reinitialize_weights(
     if not savedir:  
         savedir = get_savedir()
 
+    original_tokenizer = AutoTokenizer.from_pretrained(model)
     map_save_path = px.join(savedir, "id_mapping.json")
     extended_tokenizer = AutoTokenizer.from_pretrained(extended_tokenizer_path)
     pruned_tokenizer = AutoTokenizer.from_pretrained(pruned_tokenizer_path)
@@ -68,12 +69,12 @@ def reinitialize_weights(
 
     else:
         if reinitialize_old:
-            overlap_t2t = Token2token.make(lang1, no_overlap, extended_tokenizer, extended_tokenizer, datapref=datapref, column1=column1, column2=column2, num_workers=num_workers, savedir=savedir, n_lines=n_lines)
+            overlap_t2t = Token2token.make(lang1, no_overlap, extended_tokenizer, pruned_tokenizer, datapref=datapref, column1=column1, column2=column2, num_workers=num_workers, savedir=savedir, n_lines=n_lines)
             additional_mapping = extract_old_vocab(overlap_t2t, new_vocab_map)
             new_vocab_map.update(additional_mapping)
 
-        t2t = Token2token.make(lang1, lang2, extended_tokenizer, pruned_tokenizer, datapref=datapref, column1=column1, column2=column2, split=split, num_workers=num_workers, savedir=savedir, n_lines=n_lines)
-        id_map = extract_mapping(t2t, new_vocab_map, extended_tokenizer)
+        t2t = Token2token.make(lang1, lang2, extended_tokenizer, original_tokenizer, datapref=datapref, column1=column1, column2=column2, split=split, num_workers=num_workers, savedir=savedir, n_lines=n_lines)
+        id_map = extract_mapping(t2t, new_vocab_map)
 
     j_dump(id_map, map_save_path) 
 

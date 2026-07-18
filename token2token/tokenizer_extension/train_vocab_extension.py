@@ -4,9 +4,7 @@ from tqdm import tqdm
 from heapq import heappush, heappop
 
 
-from collections import Counter
-
-def fast_group_tokens_and_frequencies(corpus, tokenizer, batch_size=10000):
+def fast_group_tokens_and_frequencies(corpus, tokenizer, batch_size=1000):
     split_freqs = Counter()
     backend_tokenizer = tokenizer._tokenizer
     
@@ -26,18 +24,33 @@ def fast_group_tokens_and_frequencies(corpus, tokenizer, batch_size=10000):
             # Rust processes the batch in parallel
             encodings = backend_tokenizer.encode_batch(batch)
             
-            # Process outputs
+            # Process outputs (True Linear Speedup)
             for encoding in encodings:
-                words_dict = {}
+                current_word_id = None
+                current_word_tokens = []
+                sentence_words = [] # Keep it localized to a single sentence
+                
                 for token, word_id in zip(encoding.tokens, encoding.word_ids):
                     if word_id is None:
                         continue
-                    if word_id not in words_dict:
-                        words_dict[word_id] = []
-                    words_dict[word_id].append(token)
+                        
+                    if word_id == current_word_id:
+                        current_word_tokens.append(token)
+                    else:
+                        if current_word_tokens:
+                            sentence_words.append(tuple(current_word_tokens))
+                        current_word_id = word_id
+                        current_word_tokens = [token]
+                        
+                if current_word_tokens:
+                    sentence_words.append(tuple(current_word_tokens))
+                    
+                # Update the Counter immediately for this sentence
+                split_freqs.update(sentence_words)
                 
-                for word_tokens in words_dict.values():
-                    split_freqs[tuple(word_tokens)] += 1
+                # Explicitly clear references to free RAM instantly
+                del sentence_words
+                del current_word_tokens
             
             # Update the progress bar by the size of the batch we just finished
             pbar.update(len(batch))
@@ -123,7 +136,7 @@ def train_vocab_extension(
         corpus: Iterable[str],
         extension_size: int,
         max_token_length: Optional[int] = None,
-        batch_size: int = 10000,
+        batch_size: int = 1000,
 ) -> dict:
     """
     :param tokenizer: The tokenizer to continually train

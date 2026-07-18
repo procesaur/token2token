@@ -1,4 +1,4 @@
-from token2token.utils import ds_iterator, j_dump, get_savedir
+from token2token.utils import ds_iterator, j_dump, get_savedir, add_translit_normilizer
 from .tokenizer_extension.pruning import prune_tokenizer
 from .tokenizer_extension.train_vocab_extension import train_vocab_extension
 from .tokenizer_extension.extension import extend_tokenizer
@@ -14,6 +14,7 @@ def perform_extension(
         extension_size: int = None,
         no_translit: bool = False,
         savedir: str = None,
+        n_lines: int = None,
         **kwargs
 ):
     if not savedir:  
@@ -32,7 +33,7 @@ def perform_extension(
             extension_size = min(extension_size, n_pruned)
         else:
             extension_size = n_pruned
-        dataset = ds_iterator(dataset, split, limit=1000)
+        dataset = ds_iterator(dataset, split, limit=n_lines)
         
         extension_tokens = train_vocab_extension(
             tokenizer=pruned_tokenizer,
@@ -47,11 +48,13 @@ def perform_extension(
             prunned_ids=list(prunned_map.values()) 
         )
 
+        if not no_translit:
+            extended_tokenizer = add_translit_normilizer(extended_tokenizer)
+
         shutil.copytree(prunned_save_path, extended_save_path, dirs_exist_ok=True)
         extended_tokenizer.save(extend_tokenizer_jpath)
         j_dump(new_vocab_map, vocab_map_save_path)
 
-        print(f"Tokenizer prunned and extended. Pruned tokenizer saved to {prunned_save_path}, extended \
-         tokenizer saved to {extended_save_path}. New vocab mapping saved to {vocab_map_save_path}")
+        print(f"Tokenizer prunned and extended. Pruned tokenizer saved to {prunned_save_path}, extended tokenizer saved to {extended_save_path}. New vocab mapping saved to {vocab_map_save_path}")
 
     return extended_save_path, prunned_save_path, vocab_map_save_path

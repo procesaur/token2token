@@ -6,6 +6,7 @@ from datasets import load_dataset
 from transformers import AutoTokenizer
 from typing import Dict, List, Tuple
 from json import loads, dump, load
+from tokenizers.normalizers import Sequence, Replace
 
 
 def load_hf_tokenizer(name):
@@ -51,13 +52,13 @@ def build_dataset(lang1, lang2, tokenizer1, tokenizer2, datapref=None, column1="
     def preprocess(example, reverse):
         if reverse:
             return {
-                lang1: tokenizer1.tokenize(example[column1]),
-                lang2: tokenizer2.tokenize(example[column2])
+                lang1: tokenizer1.tokenize(example[column2]),
+                lang2: tokenizer2.tokenize(example[column1])
             }
         else:
             return {
-                lang1: tokenizer1.tokenize(example[column2]),
-                lang2: tokenizer2.tokenize(example[column1])
+                lang1: tokenizer1.tokenize(example[column1]),
+                lang2: tokenizer2.tokenize(example[column2])
             }
 
     if datapref:
@@ -142,3 +143,16 @@ cyrillic_to_latin = {
     "Ч": "Č", "ч": "č",
     "Ш": "Š", "ш": "š"
 }
+
+def add_translit_normilizer(tokenizer):
+    translit_normalizers = [Replace(cyr, lat) for cyr, lat in cyrillic_to_latin.items()]
+
+    existing_normalizer = tokenizer.normalizer
+
+    if existing_normalizer is not None:
+        new_normalizer = Sequence([Sequence(translit_normalizers), existing_normalizer])
+    else:
+        new_normalizer = Sequence(translit_normalizers)
+
+    tokenizer.normalizer = new_normalizer
+    return tokenizer

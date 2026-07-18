@@ -2,35 +2,39 @@ from collections import defaultdict, Counter
 from typing import Iterable, Optional
 from tqdm import tqdm
 from heapq import heappush, heappop
+from itertools import islice
 
 
 def fast_group_tokens_and_frequencies(corpus, tokenizer, batch_size=1000):
     split_freqs = Counter()
     backend_tokenizer = tokenizer._tokenizer
     
-    # Convert corpus to a list to easily slice
-    corpus_list = list(corpus) if not isinstance(corpus, list) else corpus
-    total_docs = len(corpus_list)
-
-    # Initialize tqdm with the total number of items (documents), not batches
-    with tqdm(total=total_docs, desc="Batch pre-tokenizing (Rust-accelerated)") as pbar:
-        for i in range(0, total_docs, batch_size):
-            batch = corpus_list[i : i + batch_size]
+    # Turn corpus into an iterator so we don't load everything into RAM at once
+    corpus_iter = iter(corpus)
+    
+    # Use a generic progress bar since we are streaming the dataset
+    with tqdm(desc="Processing text batches (Rust-accelerated)", unit=" docs") as pbar:
+        while True:
+            # Dynamically grab a batch from the stream without using list(corpus)
+            batch = list(islice(corpus_iter, batch_size))
+            if not batch:
+                break
             
-            # Apply normalization
-            if backend_tokenizer.normalizer is not None:
-                batch = [backend_tokenizer.normalizer.normalize_str(text) for text in batch]
-            
-            # Rust processes the batch in parallel
+            # Rust processes the batch fully in parallel (including normalization!)
             encodings = backend_tokenizer.encode_batch(batch)
             
-            # Process outputs (True Linear Speedup)
+            # Collect all word structures for this batch to do a single bulk C-level update
+            batch_words = []
+            
             for encoding in encodings:
+                # CRITICAL: Fetch lists once across the Rust boundary
+                tokens = encoding.tokens
+                word_ids = encoding.word_ids
+                
                 current_word_id = None
                 current_word_tokens = []
-                sentence_words = [] # Keep it localized to a single sentence
                 
-                for token, word_id in zip(encoding.tokens, encoding.word_ids):
+                for token, word_id in zip(tokens, word_ids):
                     if word_id is None:
                         continue
                         
@@ -38,21 +42,17 @@ def fast_group_tokens_and_frequencies(corpus, tokenizer, batch_size=1000):
                         current_word_tokens.append(token)
                     else:
                         if current_word_tokens:
-                            sentence_words.append(tuple(current_word_tokens))
+                            batch_words.append(tuple(current_word_tokens))
                         current_word_id = word_id
                         current_word_tokens = [token]
                         
                 if current_word_tokens:
-                    sentence_words.append(tuple(current_word_tokens))
-                    
-                # Update the Counter immediately for this sentence
-                split_freqs.update(sentence_words)
-                
-                # Explicitly clear references to free RAM instantly
-                del sentence_words
-                del current_word_tokens
+                    batch_words.append(tuple(current_word_tokens))
             
-            # Update the progress bar by the size of the batch we just finished
+            # Bulk update the Counter using optimized C loops in one shot
+            split_freqs.update(batch_words)
+            
+            # Update progress bar
             pbar.update(len(batch))
 
     return split_freqs

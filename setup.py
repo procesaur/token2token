@@ -12,7 +12,7 @@ REQUIRED_PACKAGES = [
 
 setuptools.setup(
     name="token2token",
-    version="1.0.0",
+    version="1.0.2",
     author="Mihailo Škorić, based on {Kyubyong Park, Dongwoo Kim, Yo Joong Choe}",
     author_email="procesaur@gmail.com",
     description="Build and view token mappings between languages and tokenizers",

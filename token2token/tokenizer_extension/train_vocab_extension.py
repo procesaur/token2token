@@ -5,57 +5,108 @@ from heapq import heappush, heappop
 from itertools import islice
 
 
-def fast_group_tokens_and_frequencies(corpus, tokenizer, batch_size=1000):
+def fast_group_tokens_and_frequencies(corpus, tokenizer, batch_size=2000):
     split_freqs = Counter()
     backend_tokenizer = tokenizer._tokenizer
-    
-    # Turn corpus into an iterator so we don't load everything into RAM at once
     corpus_iter = iter(corpus)
-    
-    # Use a generic progress bar since we are streaming the dataset
-    with tqdm(desc="Processing text batches (Rust-accelerated)", unit=" docs") as pbar:
+
+    with tqdm(desc="Processing text batches", unit=" docs") as pbar:
         while True:
-            # Dynamically grab a batch from the stream without using list(corpus)
             batch = list(islice(corpus_iter, batch_size))
             if not batch:
                 break
             
-            # Rust processes the batch fully in parallel (including normalization!)
+            batch = [" " + word for doc in batch for word in doc.split() if word]        
             encodings = backend_tokenizer.encode_batch(batch)
             
-            # Collect all word structures for this batch to do a single bulk C-level update
-            batch_words = []
-            
+            # Use a batch-local Counter to collapse duplicate words BEFORE touching global state
+            batch_counter = Counter()
+
             for encoding in encodings:
-                # CRITICAL: Fetch lists once across the Rust boundary
                 tokens = encoding.tokens
                 word_ids = encoding.word_ids
-                
+
                 current_word_id = None
                 current_word_tokens = []
-                
+
                 for token, word_id in zip(tokens, word_ids):
                     if word_id is None:
                         continue
-                        
+
                     if word_id == current_word_id:
                         current_word_tokens.append(token)
                     else:
                         if current_word_tokens:
-                            batch_words.append(tuple(current_word_tokens))
+                            # String keys are much lighter than Python tuples
+                            batch_counter[" ".join(current_word_tokens)] += 1
                         current_word_id = word_id
                         current_word_tokens = [token]
-                        
+
                 if current_word_tokens:
-                    batch_words.append(tuple(current_word_tokens))
+                    batch_counter[" ".join(current_word_tokens)] += 1
+
+            # Merge only unique aggregated counts into the main Counter
+            split_freqs.update(batch_counter)
             
-            # Bulk update the Counter using optimized C loops in one shot
-            split_freqs.update(batch_words)
+            # Explicit memory release for batch encodings
+            del encodings
+            del batch_counter
+
+            pbar.update(batch_size)
+
+    # Convert space-joined keys back to tuples ONLY at the end
+    return {tuple(k.split(" ")): v for k, v in split_freqs.items()}
+
+def fast_group_tokens_and_frequencies(corpus, tokenizer, batch_size=512):
+    split_freqs = Counter()
+    backend_tokenizer = tokenizer._tokenizer
+    corpus_iter = iter(corpus)
+
+    with tqdm(desc="Processing text batches", unit=" docs") as pbar:
+        while True:
+            batch = list(islice(corpus_iter, batch_size))
+            if not batch:
+                break
+
+            encodings = backend_tokenizer.encode_batch(batch)
             
-            # Update progress bar
+            # Use a batch-local Counter to collapse duplicate words BEFORE touching global state
+            batch_counter = Counter()
+
+            for encoding in encodings:
+                tokens = encoding.tokens
+                word_ids = encoding.word_ids
+
+                current_word_id = None
+                current_word_tokens = []
+
+                for token, word_id in zip(tokens, word_ids):
+                    if word_id is None:
+                        continue
+
+                    if word_id == current_word_id:
+                        current_word_tokens.append(token)
+                    else:
+                        if current_word_tokens:
+                            # String keys are much lighter than Python tuples
+                            batch_counter[" ".join(current_word_tokens)] += 1
+                        current_word_id = word_id
+                        current_word_tokens = [token]
+
+                if current_word_tokens:
+                    batch_counter[" ".join(current_word_tokens)] += 1
+
+            # Merge only unique aggregated counts into the main Counter
+            split_freqs.update(batch_counter)
+            
+            # Explicit memory release for batch encodings
+            del encodings
+            del batch_counter
+
             pbar.update(len(batch))
 
-    return split_freqs
+    # Convert space-joined keys back to tuples ONLY at the end
+    return {tuple(k.split(" ")): v for k, v in split_freqs.items()}
 
 def compute_pair_freqs(splits, word_freqs):
     pair_freqs = defaultdict(int)
@@ -136,7 +187,7 @@ def train_vocab_extension(
         corpus: Iterable[str],
         extension_size: int,
         max_token_length: Optional[int] = None,
-        batch_size: int = 1000,
+        batch_size: int = 512,
 ) -> dict:
     """
     :param tokenizer: The tokenizer to continually train

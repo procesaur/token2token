@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-r"""word2word
+r"""token2token
 """
 from __future__ import absolute_import
 

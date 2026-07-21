@@ -1,4 +1,4 @@
-import setuptools
+from setuptools import setup, find_packages
 
 with open("README.md", mode="r", encoding="utf-8") as fh:
     long_description = fh.read()
@@ -10,9 +10,10 @@ REQUIRED_PACKAGES = [
     'tqdm',
 ]
 
-setuptools.setup(
+setup(
     name="token2token",
-    version="1.0.3",
+    version="1.0.4",
+    packages=find_packages(),
     author="Mihailo Škorić, based on {Kyubyong Park, Dongwoo Kim, Yo Joong Choe, Taido Purason}",
     author_email="procesaur@gmail.com",
     description="Build and view token mappings between languages and tokenizers",
@@ -21,7 +22,7 @@ setuptools.setup(
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/procesaur/token2token",
-    packages=setuptools.find_packages(),
+    packages=find_packages(),
     python_requires=">=3.6",
     include_package_data=True,
     classifiers=[

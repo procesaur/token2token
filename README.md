@@ -115,6 +115,7 @@ For token2token add-on citation coming soon.
 [Mihailo Škorić](https://github.com/procesaur)
 based on 
 [Kyubyong Park](https://github.com/Kyubyong), 
-[Dongwoo Kim](https://github.com/kimdwkimdw), and 
-[YJ Choe](https://github.com/yjchoe)
+[Dongwoo Kim](https://github.com/kimdwkimdw), 
+[YJ Choe](https://github.com/yjchoe), and 
+[Taido Purason ](taido.purason@ut.ee)
 

@@ -12,8 +12,8 @@ REQUIRED_PACKAGES = [
 
 setup(
     name="token2token",
-    version="1.0.4",
-    packages=find_packages(),
+    version="1.0.5",
+    packages=find_packages(include=["token2token.*"]),
     author="Mihailo Škorić, based on {Kyubyong Park, Dongwoo Kim, Yo Joong Choe, Taido Purason}",
     author_email="procesaur@gmail.com",
     description="Build and view token mappings between languages and tokenizers",

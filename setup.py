@@ -12,8 +12,8 @@ REQUIRED_PACKAGES = [
 
 setuptools.setup(
     name="token2token",
-    version="1.0.2",
-    author="Mihailo Škorić, based on {Kyubyong Park, Dongwoo Kim, Yo Joong Choe}",
+    version="1.0.3",
+    author="Mihailo Škorić, based on {Kyubyong Park, Dongwoo Kim, Yo Joong Choe, Taido Purason}",
     author_email="procesaur@gmail.com",
     description="Build and view token mappings between languages and tokenizers",
     install_requires=REQUIRED_PACKAGES,

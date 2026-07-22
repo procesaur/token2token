@@ -19,6 +19,9 @@ def prune_tokenizer(tokenizer_name, prune_target="both", no_translit=False):
 
     tokenizer = load_hf_tokenizer(tokenizer_name)
 
+    if not no_translit:
+        tokenizer = add_translit_normilizer(tokenizer)
+        
     cfg = loads(tokenizer._tokenizer.to_str())
     vocab, merges = get_vocab_and_merges(tokenizer)
 

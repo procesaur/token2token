@@ -55,9 +55,9 @@ if __name__ == "__main__":
             lang1="sr",
             lang2="ru",
             model="Qwen/Qwen3.5-0.8B",
-            extended_tokenizer_path="C:/word2word/my-tokenizer",
-            pruned_tokenizer_path="C:/word2word/my-pruned-tokenizer",
-            new_vocab_map_path="C:/word2word/my-tokenizer/new_vocab_map.json",
+            extended_tokenizer_path="C:/word2word/cyr/my-tokenizer",
+            pruned_tokenizer_path="C:/word2word/cyr/my-pruned-tokenizer",
+            new_vocab_map_path="C:/word2word/cyr/my-tokenizer/new_vocab_map.json",
             reinitialize_old=False,
             num_workers=8
         )

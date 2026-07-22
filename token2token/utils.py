@@ -79,7 +79,7 @@ def build_dataset(lang1, lang2, tokenizer1, tokenizer2, datapref=None, column1="
             streaming=True
         )
 
-    ds = ds.map(preprocess, reverse)
+    ds = ds.map(lambda x: preprocess(x, reverse=reverse))
     return ds
 
 
@@ -145,14 +145,19 @@ cyrillic_to_latin = {
 }
 
 def add_translit_normilizer(tokenizer):
-    translit_normalizers = [Replace(cyr, lat) for cyr, lat in cyrillic_to_latin.items()]
+    translit_normalizers = [
+        Replace(cyr, lat) for cyr, lat in cyrillic_to_latin.items()
+    ]
 
-    existing_normalizer = tokenizer.normalizer
+    backend_tokenizer = getattr(tokenizer, "_tokenizer", tokenizer)
+    existing_normalizer = backend_tokenizer.normalizer
 
     if existing_normalizer is not None:
-        new_normalizer = Sequence([Sequence(translit_normalizers), existing_normalizer])
+        new_normalizer = Sequence(
+            [Sequence(translit_normalizers), existing_normalizer]
+        )
     else:
         new_normalizer = Sequence(translit_normalizers)
 
-    tokenizer.normalizer = new_normalizer
+    backend_tokenizer.normalizer = new_normalizer
     return tokenizer

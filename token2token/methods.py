@@ -112,7 +112,8 @@ def get_vocab(dataset, column, tokenizer=None):
             idx2word[idx] = word
             idx2cnt[idx] = cnt
     else:
-        word2idx = tokenizer.get_vocab()
+        vocab = tokenizer.get_vocab()
+        word2idx = dict(sorted(vocab.items(), key=lambda item: item[1])) 
         idx2word = {v:k for k,v in word2idx.items()}
         idx2cnt = {word2idx[word]:count for word, count in word2cnt}
 

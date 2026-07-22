@@ -24,16 +24,16 @@ class Token2token:
         my_en2fr = Token2token.make("sr", "hr", "procesaur/gpt2-srlat", "procesaur/gpt2-srlat", "Helsinki-NLP/OpenSubtitles2024", column1="src_text", column2="tgt_text")
     """
 
-    def __init__(self, lang1=None, lang2=None, token2x=None, token2y=None, x2token=None, y2token=None, x2ys=None, path=None,):
+    def __init__(self, lang1=None, lang2=None, token2x=None, token2y=None, x2token=None, y2token=None, x2ys=None, xfpm=None, yfpm=None, path=None,):
         """Loads this object with a custom-built token mapping.
 
         savedir is the directory containing {lang1}-{lang2}.pkl files
         built from the make function.
         """
 
-        if all(d is not None for d in [lang1, lang2, token2x, token2y, x2token, y2token, x2ys]):
+        if all(d is not None for d in [lang1, lang2, token2x, token2y, x2token, y2token, x2ys, xfpm, yfpm]):
             # load a custom-built token2token bilingual tool mapping
-            self.lang1, self.lang2, self.token2x, self.token2y, self.x2token, self.y2token, self.x2ys = lang1, lang2, token2x, token2y, x2token, y2token, x2ys
+            self.lang1, self.lang2, self.token2x, self.token2y, self.x2token, self.y2token, self.x2ys, self.xfpm, self.yfpm = lang1, lang2, token2x, token2y, x2token, y2token, x2ys, xfpm, yfpm
             return  
 
         if not path:
@@ -175,9 +175,14 @@ class Token2token:
                              "Options: simple, multiprocessing")
         print(f"Time taken for step 5: {time() - t0:.2f}s")
 
+        x_total_count = sum(x2cnt.values())
+        y_total_count = sum(y2cnt.values())
+        xfpm = {x2token[x]:round(1000000*y/x_total_count) for x, y in x2cnt.items()}
+        yfpm = {y2token[x]:round(1000000*y/y_total_count) for x, y in y2cnt.items()}
+
         print("Saving...")
         Token2token.save(lang1, lang2, savedir, token2x, token2y, x2token,
-                       x2ys_cpe, y2token, t1name, t2name)
+                       y2token, x2ys_cpe, xfpm, yfpm, t1name, t2name)
 
         if save_pmi:
             print("Step 5-1. Translation using PMI scores")
@@ -190,20 +195,20 @@ class Token2token:
 
             x2ys_pmi = get_trans_pmi(x2ys, x2cnt, y2cnt, Nxy, Nx, Ny,
                                      rerank_width, n_translations)
-            y2xs_pmi = get_trans_pmi(y2xs, y2cnt, x2cnt, Nxy, Ny, Nx,
-                                     rerank_width, n_translations)
+            #y2xs_pmi = get_trans_pmi(y2xs, y2cnt, x2cnt, Nxy, Ny, Nx,
+             #                        rerank_width, n_translations)
 
             Token2token.save(lang1, lang2, subdir, token2x, token2y, x2token,
-                           x2ys_pmi, y2token, y2xs_pmi, t1name, t2name)
+                            y2token, x2ys_pmi, xfpm, yfpm, t1name, t2name)
 
         print("Done!")
-        return cls(lang1, lang2, token2x, token2y, x2token, y2token, x2ys_cpe)
+        return cls(lang1, lang2, token2x, token2y, x2token, y2token, x2ys_cpe, xfpm, yfpm)
 
     @staticmethod
-    def save(lang1, lang2, savedir, token2x, token2y, x2token, x2ys, y2token, t1name, t2name):
+    def save(lang1, lang2, savedir, token2x, token2y, x2token, y2token, x2ys, xfpm, yfpm, t1name, t2name):
 
         def _dump_json(path, src_vocab, tgt_vocab, translations, src_lang, tgt_lang,
-                    id2token_src, id2token_tgt, t1name=t1name, t2name=t2name):
+                    id2token_src, id2token_tgt, xfpm, yfpm, t1name=t1name, t2name=t2name):
             """Helper to write bilingual dictionary JSON with tokens instead of IDs."""
             norm_translations = {}
             for src_id, tgts in translations.items():
@@ -223,6 +228,8 @@ class Token2token:
                 "tgt_tokenizer": t2name,
                 "src_vocab": src_vocab,
                 "tgt_vocab": tgt_vocab,
+                "src_fpm": xfpm,
+                "tgt_fpm": yfpm,    
                 "translations": norm_translations
             }
             with open(path, "w", encoding="utf-8") as f:
@@ -238,6 +245,8 @@ class Token2token:
             tgt_lang=lang2,
             id2token_src=x2token,
             id2token_tgt=y2token,
+            xfpm=xfpm,
+            yfpm=yfpm,
             t1name=t1name,
             t2name=t2name
         )

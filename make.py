@@ -89,14 +89,5 @@ def main():
         del args.tokenizer2
         Word2word.make(**vars(args))
 
-
 if __name__ == "__main__":
-    # Word2word.make(lang1="sr", lang2="hr", n_lines=100)
-    # srhr = Word2word(lang1="sr", lang2="hr")
-
-    #enfr = Token2token.make(lang1="en", lang2="fr", tokenizer1="Qwen/Qwen3.5-0.8B", tokenizer2="Qwen/Qwen3.5-0.8B", n_lines=500000)
-    # enfr = Word2word.make(lang1="en", lang2="fr", n_lines=500000)
-    # Token2token.make(lang1="sr", lang2="hr", tokenizer1="jerteh/Jerteh-81", tokenizer2="jerteh/Jerteh-81", n_lines=1000000)
-    # srhr = Token2token(lang1="sr", lang2="hr")
-    # print(enfr("apple"))
     main()

@@ -53,6 +53,8 @@ def main():
                         help="identifier of the second column with parallel text in a huggingface dataset")
     parser.add_argument('--split', type=str, default="train",
                         help="split identifier in a huggingface dataset")
+    parser.add_argument('--subset', type=str, default=None,
+                        help="split identifier in a huggingface dataset")
     parser.add_argument('--word2word', action='store_true',
                             help="Use the original word2word")
 
@@ -78,6 +80,8 @@ def main():
                              "a custom-bulit lexicon.")
     parser.add_argument('--num_workers', default=16, type=int,
                         help="number of workers used for multiprocessing")
+    parser.add_argument('--vocab_only', action='store_true',
+                            help="Return only the vocab frequencies, without crosslingual mapping")
     args = parser.parse_args()
 
     w2w = args.word2word
@@ -87,6 +91,7 @@ def main():
     else:
         del args.tokenizer1
         del args.tokenizer2
+        del args.vocab_only
         Word2word.make(**vars(args))
 
 if __name__ == "__main__":

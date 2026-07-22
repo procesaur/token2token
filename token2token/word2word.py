@@ -61,6 +61,8 @@ class Word2word (Token2token):
             datapref: str = None,
             column1: str = None,
             column2: str = None,
+            split: str = "train",
+            subset: str = None,
             n_lines: int = 1000000,
             cutoff: int = 5000,
             rerank_width: int = 100,
@@ -76,17 +78,14 @@ class Word2word (Token2token):
         lang1, lang2 = sorted([lang1, lang2])
         tokenizer1, t1name = load_word_tokenizer(lang1)
         tokenizer2, t2name = load_word_tokenizer(lang2)
-        dataset = build_dataset(lang1, lang2, tokenizer1, tokenizer2, datapref, column1, column2)
+        dataset = build_dataset(lang1, lang2, tokenizer1, tokenizer2, datapref, column1, column2, split=split, subset=subset)
 
         # input savedir if provided, system default otherwise
         if not savedir:
             savedir = get_savedir()
 
         print("Step 3. Compute vocabularies")
-        # word <-> index
-
-        word2x, x2word, x2cnt = get_vocab(dataset.take(n_lines), lang1)
-        word2y, y2word, y2cnt = get_vocab(dataset.take(n_lines), lang2)
+        word2x, x2word, x2cnt, word2y, y2word, y2cnt = get_vocab(dataset.take(n_lines), lang1, lang2, tokenizer1, tokenizer2)
 
         print("Step 4. Update count dictionaries")
         # monolingual and cross-lingual dictionaries

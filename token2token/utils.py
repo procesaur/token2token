@@ -36,7 +36,7 @@ def exists(path):
     return r.status_code == requests.codes.ok
 
 
-def build_dataset(lang1, lang2, tokenizer1, tokenizer2, datapref=None, column1="src_text", column2="tgt_text", split="train"):
+def build_dataset(lang1, lang2, tokenizer1, tokenizer2, datapref=None, column1="src_text", column2="tgt_text", split="train", subset=None):
     """Download corpora from OpenSubtitles2024.
     :return huggingface dataset
     """
@@ -62,11 +62,19 @@ def build_dataset(lang1, lang2, tokenizer1, tokenizer2, datapref=None, column1="
             }
 
     if datapref:
-        ds = load_dataset(
-            datapref,
-            split=split,
-            streaming=True
-        )
+        if subset:
+            ds = load_dataset(
+                datapref,
+                subset,
+                split=split,
+                streaming=True    
+            )
+        else:
+            ds = load_dataset(
+                datapref,
+                split=split,
+                streaming=True    
+            )
 
     else:
         if datasetlang1 != lang1 and not datapref:
@@ -76,7 +84,8 @@ def build_dataset(lang1, lang2, tokenizer1, tokenizer2, datapref=None, column1="
             split="train",
             trust_remote_code=True,
             data_files=f"dev/{datasetlang1}-{datasetllang2}/{datasetlang1}-{datasetllang2}.parquet",
-            streaming=True
+            streaming=True,
+            download_mode="force_redownload"  # <--- Forces HF to ignore local cache and redownload
         )
 
     ds = ds.map(lambda x: preprocess(x, reverse=reverse))

@@ -40,6 +40,10 @@ def main():
                         help="Also change weights of the existing tokens for the new language")
     parser.add_argument('--no_overlap', type=str, default=None,
                         help="identifier of the language you want to avoid overlap with")
+    parser.add_argument('--no_overlap_data', type=str, default=None,
+                        help="identifier of the dataset you want to use to calculate possible overlap tokens")
+    parser.add_argument('--no_overlap_lines', type=int, default=None,
+                        help="number of parallel sentences used to caluclate overlap")
     parser.add_argument('--savedir', type=str, default=None,
                         help="location to store the new tokenizer")
     parser.add_argument('--num_workers', default=16, type=int,
@@ -58,6 +62,10 @@ if __name__ == "__main__":
             extended_tokenizer_path="C:/word2word/cyr/my-tokenizer",
             pruned_tokenizer_path="C:/word2word/cyr/my-pruned-tokenizer",
             new_vocab_map_path="C:/word2word/cyr/my-tokenizer/new_vocab_map.json",
-            reinitialize_old=False,
-            num_workers=8
+            reinitialize_old=True,
+            num_workers=8,
+            no_overlap_data = "procesaur/ParalelniSrEn",
+            no_overlap_lines=100000,
+            datapref = "procesaur/KOPaKS.ru",
+            n_lines = 2000000
         )

@@ -109,6 +109,7 @@ class Token2token:
             column1: str = None,
             column2: str = None,
             split: str = "train",
+            subset: str = None,
             n_lines: int = 1000000,
             cutoff: int = 5000,
             rerank_width: int = 100,
@@ -117,6 +118,7 @@ class Token2token:
             save_pmi: bool = False,
             savedir: str = None,
             num_workers: int = 8,
+            vocab_only: bool = False,
     ):
         """Build a token mapping using a parallel corpus."""
 
@@ -140,17 +142,22 @@ class Token2token:
             except:
                 t2name = getattr(tokenizer2, "name_or_path", "unknown_model")
 
-        dataset = build_dataset(lang1, lang2, tokenizer1, tokenizer2, datapref, column1, column2, split=split)
+        dataset = build_dataset(lang1, lang2, tokenizer1, tokenizer2, datapref, column1, column2, split=split, subset=subset)
 
         # input savedir if provided, system default otherwise
         if not savedir:
             savedir = get_savedir()
 
         print("Step 3. Compute vocabularies")
-        # token <-> index
+        token2x, x2token, x2cnt, token2y, y2token, y2cnt = get_vocab(dataset.take(n_lines), lang1, lang2, tokenizer1, tokenizer2)
 
-        token2x, x2token, x2cnt = get_vocab(dataset.take(n_lines), lang1, tokenizer1)
-        token2y, y2token, y2cnt = get_vocab(dataset.take(n_lines), lang2, tokenizer2)
+        x_total_count = sum(x2cnt.values())
+        y_total_count = sum(y2cnt.values())
+        xfpm = {x2token[x]:round(1000000*y/x_total_count) for x, y in x2cnt.items()}
+        yfpm = {y2token[x]:round(1000000*y/y_total_count) for x, y in y2cnt.items()}
+
+        if vocab_only:
+            return xfpm, yfpm, token2x, token2y
 
         print("Step 4. Update count dictionaries")
         # monolingual and cross-lingual dictionaries
@@ -174,11 +181,6 @@ class Token2token:
             raise ValueError("unrecognized --rerank_impl argument. "
                              "Options: simple, multiprocessing")
         print(f"Time taken for step 5: {time() - t0:.2f}s")
-
-        x_total_count = sum(x2cnt.values())
-        y_total_count = sum(y2cnt.values())
-        xfpm = {x2token[x]:round(1000000*y/x_total_count) for x, y in x2cnt.items()}
-        yfpm = {y2token[x]:round(1000000*y/y_total_count) for x, y in y2cnt.items()}
 
         print("Saving...")
         Token2token.save(lang1, lang2, savedir, token2x, token2y, x2token,

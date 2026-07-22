@@ -101,23 +101,41 @@ def get_trans_pmi(x2ys, x2cnt, y2cnt, Nxy, Nx, Ny, width, n_trans):
     return x2ys_pmi
 
 
-def get_vocab(dataset, column, tokenizer=None):
+def get_vocab(dataset, column1, column2, tokenizer1=None, tokenizer2=None):
     word2idx, idx2word, idx2cnt = dict(), dict(), dict()
-    X = [ex[column] for ex in dataset]
-    word2cnt = Counter(list(chain.from_iterable(X))).most_common()
-    if not tokenizer:
-        word2cnt.sort(key=operator.itemgetter(1, 0), reverse=True)
-        for idx, (word, cnt) in enumerate(tqdm(word2cnt)):
+    word2idy, idy2word, idy2cnt = dict(), dict(), dict()
+    word2cnt1 = Counter()
+    word2cnt2 = Counter()
+    for example in tqdm(dataset):
+        word2cnt1.update(example[column1])
+        word2cnt2.update(example[column2])
+    word2cnt1 = word2cnt1.most_common()
+    word2cnt2 = word2cnt2.most_common()
+
+    if not tokenizer1:
+        word2cnt1.sort(key=operator.itemgetter(1, 0), reverse=True)
+        for idx, (word, cnt) in enumerate(tqdm(word2cnt1)):
             word2idx[word] = idx
             idx2word[idx] = word
             idx2cnt[idx] = cnt
     else:
-        vocab = tokenizer.get_vocab()
+        vocab = tokenizer1.get_vocab()
         word2idx = dict(sorted(vocab.items(), key=lambda item: item[1])) 
         idx2word = {v:k for k,v in word2idx.items()}
-        idx2cnt = {word2idx[word]:count for word, count in word2cnt}
+        idx2cnt = {word2idx[word]:count for word, count in word2cnt1}
+    if not tokenizer2:
+        word2cnt2.sort(key=operator.itemgetter(1, 0), reverse=True)
+        for idy, (word, cnt) in enumerate(tqdm(word2cnt2)):
+            word2idy[word] = idy
+            idy2word[idy] = word
+            idy2cnt[idy] = cnt
+    else:
+        vocab = tokenizer2.get_vocab()
+        word2idy = dict(sorted(vocab.items(), key=lambda item: item[1])) 
+        idy2word = {v:k for k,v in word2idy.items()}
+        idy2cnt = {word2idy[word]:count for word, count in word2cnt2}
 
-    return word2idx, idx2word, idx2cnt
+    return word2idx, idx2word, idx2cnt, word2idy, idy2word, idy2cnt
 
 
 def update_dicts(dataset, lang1, lang2, vocab1, vocab2, cutoff, n_lines, save_pmi):

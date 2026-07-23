@@ -1,13 +1,23 @@
 # -*- coding: utf-8 -*-
 r"""
-A command line script for building an extended tokenizer.
-more details soon
+A command line script for building an extended tokenizer based on an existing tokenizer (HF model) and a custom training dataset with four pruning options to create space for new vocab:
+cyr - remove all Cyrillic tokens 
+zh - remove all Chinese tokens 
+both - remove all Cyrillic and Chinese tokens
+all - empty the whole vocab
 
 Usage:
-soon
+    extended_tokenizer, pruned_tokenizer, new_vocab_map = adapt_tokenizer(
+        model="Qwen/Qwen3.5-0.8B",
+        dataset="procesaur/sr-tokenizer-test",
+        prune_target="cyr",
+        n_lines=3000
+        )
+
+    python make_tokenizer.py "Qwen/Qwen3.5-0.8B" "procesaur/sr-tokenizer-test" --prune_target cyr --n_lines 3000
 
 Authors:
-    Mihailo Škorić (procesaur@gmail.com), based on Kyubyong Park (kbpark.linguist@gmail.com), YJ Choe (yjchoe33@gmail.com), Dongwoo Kim (kimdwkimdw@gmail.com)
+    Mihailo Škorić (procesaur@gmail.com), based on Taido Purason (taido.purason@ut.ee)
 """
 
 import argparse
@@ -20,7 +30,7 @@ def main():
                         help="identifier of a huggingface model, or a path to dir with tokenizer.json you want to extend")
     parser.add_argument('--no_translit', dest="no_translit", action="store_true",
                         help="Do not use tranliteration for the tokenizer")
-    parser.add_argument('--dataset', type=str, default=None,
+    parser.add_argument('--dataset', type=str, required=True,
                         help="data prefix to a custom tokenizer training corpus.") 
     parser.add_argument('--subset', type=str, default=None,
                         help="subset identifier in a huggingface dataset")                                         
@@ -41,6 +51,10 @@ def main():
 
     adapt_tokenizer(**vars(args))
 
+def test():
+    adapt_tokenizer(model="Qwen/Qwen3.5-0.8B", dataset="procesaur/sr-tokenizer-test", prune_target="cyr", n_lines=500)
+
 if __name__ == "__main__":
-    #main()
-    extended_tokenizer, pruned_tokenizer, new_vocab_map = adapt_tokenizer(model="Qwen/Qwen3.5-0.8B", dataset="procesaur/sr-tokenizer-test", prune_target="cyr", n_lines=3000)
+    # test()
+    main()
+    

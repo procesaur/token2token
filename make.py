@@ -103,5 +103,5 @@ def test():
     print(my_srhr("jabuka"))
 
 if __name__ == "__main__":
-    test()
-    # main()
+    # test()
+    main()

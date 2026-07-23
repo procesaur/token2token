@@ -1,13 +1,43 @@
 # -*- coding: utf-8 -*-
 r"""
-A command line script for building an extended tokenizer.
-more details soon
+A command line script for building a token id mapping required for the weights transfer.
 
 Usage:
-soon
+        reinitialize_weights(
+            lang1="sr",
+            lang2="ru",
+            model="Qwen/Qwen3.5-0.8B",
+            extended_tokenizer_path="C:/word2word/cyr/my-tokenizer",
+            pruned_tokenizer_path="C:/word2word/cyr/my-pruned-tokenizer",
+            new_vocab_map_path="C:/word2word/cyr/my-tokenizer/new_vocab_map.json",
+            reinitialize_old=True,
+            num_workers=8,
+            no_overlap_data = "procesaur/ParalelniSrEn",
+            no_overlap_lines=10000,
+            datapref = "procesaur/KOPaKS.ru",
+            split = "dev",
+            subset = "ru",
+            n_lines = 20000
+        )
+
+python transform_weights.py \
+     sr \
+     ru \
+     "Qwen/Qwen3.5-0.8B" \
+    --extended_tokenizer_path "C:/word2word/cyr/my-tokenizer" \
+    --pruned_tokenizer_path "C:/word2word/cyr/my-pruned-tokenizer" \
+    --new_vocab_map_path "C:/word2word/cyr/my-tokenizer/new_vocab_map.json" \
+    --reinitialize_old \
+    --num_workers 8 \
+    --no_overlap_data "procesaur/ParalelniSrEn" \
+    --no_overlap_lines 10000 \
+    --datapref "procesaur/KOPaKS.ru" \
+    --split dev \
+    --subset ru \
+    --n_lines 20000
 
 Authors:
-    Mihailo Škorić (procesaur@gmail.com), based on Kyubyong Park (kbpark.linguist@gmail.com), YJ Choe (yjchoe33@gmail.com), Dongwoo Kim (kimdwkimdw@gmail.com)
+    Mihailo Škorić (procesaur@gmail.com)
 """
 
 import argparse

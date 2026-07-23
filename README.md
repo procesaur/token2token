@@ -99,9 +99,20 @@ my_en2fr = Word2word.load("en", "fr", "data/pubmed.en-fr")
 # Loaded token2word custom bilingual lexicon from C:\word2word\en-fr.json
 ```
 
-## 2. Model Weight Reinitialization (`transform_weights.py`)
 
-Once an `id_mapping.json` file is generated, you can initialize or adapt sub-token embeddings in a target language or model by averaging source token vectors.
+
+## 2. Tokenizer Vocabulary Extension & Adaptation with Weight initialization
+
+Building an extended tokenizer based on an existing tokenizer (HF model) and a custom training dataset with four pruning options to create space for new vocab
+
+1. **Tokenizer Extension via Vocabulary Pruning (`make_tokenizer.py`)**:
+   - **Targeted Pruning**: Make space for new vocabulary by pruning underused characters (`cyr`, `zh`, `both`, or `all`).
+   - **Smart Pre-tokenization**: Uses the pruned tokenizer on a target corpus to compute new frequent BPE merges and generate a custom extended vocabulary.
+   - **Transliteration Support**: Option to handle script variations during tokenizer training.
+2. **Sub-Token Alignment (`Token2token`)**:
+   - Maps sub-token alignment co-occurrence scores between target/extended tokens and original source sub-tokens across parallel corpora.
+3. **Model Weight Reinitialization from the produced mapping (`transform_weights.py`)**:
+
 
 ### Example Script Usage
 

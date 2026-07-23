@@ -52,7 +52,12 @@ def main():
     adapt_tokenizer(**vars(args))
 
 def test():
-    adapt_tokenizer(model="Qwen/Qwen3.5-0.8B", dataset="procesaur/sr-tokenizer-test", prune_target="cyr", n_lines=500)
+    extended_save_path, prunned_save_path, vocab_map_save_path = adapt_tokenizer(
+        model="Qwen/Qwen3.5-0.8B",
+        dataset="procesaur/sr-tokenizer-test",
+        prune_target="cyr",
+        n_lines=500
+    )
 
 if __name__ == "__main__":
     # test()

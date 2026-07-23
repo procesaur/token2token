@@ -30,6 +30,8 @@ def main():
                              "unless this option is provided.")                         
     parser.add_argument('--split', type=str, default="train",
                         help="split name for training corpus")
+    parser.add_argument('--subset', type=str, default=None,
+                        help="subset identifier in a huggingface dataset")
     parser.add_argument('--column1', type=str, default="src_text",
                         help="identifier of the first column with parallel text in a huggingface dataset")
     parser.add_argument('--column2', type=str, default="tgt_text",
@@ -44,6 +46,10 @@ def main():
                         help="identifier of the dataset you want to use to calculate possible overlap tokens")
     parser.add_argument('--no_overlap_lines', type=int, default=None,
                         help="number of parallel sentences used to caluclate overlap")
+    parser.add_argument('--no_overlap_split', type=str, default="train",
+                        help="split name for training corpus used to caluclate overlap")
+    parser.add_argument('--no_overlap_subset', type=str, default=None,
+                        help="subset identifier in a huggingface dataset used to caluclate overlap")
     parser.add_argument('--savedir', type=str, default=None,
                         help="location to store the new tokenizer")
     parser.add_argument('--num_workers', default=16, type=int,
@@ -65,7 +71,9 @@ if __name__ == "__main__":
             reinitialize_old=True,
             num_workers=8,
             no_overlap_data = "procesaur/ParalelniSrEn",
-            no_overlap_lines=100000,
+            no_overlap_lines=10000,
             datapref = "procesaur/KOPaKS.ru",
-            n_lines = 2000000
+            split = "dev",
+            subset = "ru",
+            n_lines = 20000
         )

@@ -21,7 +21,9 @@ def main():
     parser.add_argument('--no_translit', dest="no_translit", action="store_true",
                         help="Do not use tranliteration for the tokenizer")
     parser.add_argument('--dataset', type=str, default=None,
-                        help="data prefix to a custom tokenizer training corpus.")                    
+                        help="data prefix to a custom tokenizer training corpus.") 
+    parser.add_argument('--subset', type=str, default=None,
+                        help="subset identifier in a huggingface dataset")                                         
     parser.add_argument('--split', type=str, default="train",
                         help="split name for training corpus")
     parser.add_argument('--prune_target', type=str, default="both",

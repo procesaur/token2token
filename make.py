@@ -6,9 +6,10 @@ By default, builds from a (downloaded) OpenSubtitles2018 dataset;
  also supports building from a custom parallel corpus.
 
 Usage:
-    # Build with OpenSubtitles2018
+    # Build with OpenSubtitles2024
 
-        my_en2fr = Token2token.make("sr", "hr", "procesaur/gpt2-srlat", "procesaur/gpt2-srlat", "Helsinki-NLP/OpenSubtitles2024", column1="src_text", column2="tgt_text")
+    my_srhr = Token2token.make("sr", "hr", "procesaur/gpt2-srlat", "procesaur/gpt2-srlat", "Helsinki-NLP/OpenSubtitles2024", column1="src_text", column2="tgt_text")
+    
     python make.py sr hr
     
     # Build with custom tokenizer
@@ -54,7 +55,7 @@ def main():
     parser.add_argument('--split', type=str, default="train",
                         help="split identifier in a huggingface dataset")
     parser.add_argument('--subset', type=str, default=None,
-                        help="split identifier in a huggingface dataset")
+                        help="subset identifier in a huggingface dataset")
     parser.add_argument('--word2word', action='store_true',
                             help="Use the original word2word")
 
@@ -94,5 +95,13 @@ def main():
         del args.vocab_only
         Word2word.make(**vars(args))
 
+def test():
+    en2fr = Token2token.make("en", "fr", "Qwen/Qwen3.5-0.8B", "Qwen/Qwen3.5-0.8B", n_lines=10000)
+    print(en2fr("Ġlives"))
+
+    my_srhr = Word2word.make("sr", "hr", n_lines=50000)
+    print(my_srhr("jabuka"))
+
 if __name__ == "__main__":
-    main()
+    test()
+    # main()

@@ -9,6 +9,7 @@ from os import path as px
 def adapt_tokenizer(
         model,
         dataset: str = None,
+        subset: str = None,
         split: str = "train",
         prune_target: str = "both",
         extension_size: int = None,
@@ -33,7 +34,7 @@ def adapt_tokenizer(
             extension_size = min(extension_size, n_pruned)
         else:
             extension_size = n_pruned
-        dataset = ds_iterator(dataset, split, limit=n_lines)
+        dataset = ds_iterator(dataset, split, subset, limit=n_lines)
         
         extension_tokens = train_vocab_extension(
             tokenizer=pruned_tokenizer,

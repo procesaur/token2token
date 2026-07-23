@@ -92,8 +92,11 @@ def build_dataset(lang1, lang2, tokenizer1, tokenizer2, datapref=None, column1="
     return ds
 
 
-def ds_iterator(id, split="train", streaming=True, limit=None, fn=None):
-    dataset = load_dataset(id, split=split, streaming=streaming)
+def ds_iterator(id, split="train", subset=None, streaming=True, limit=None, fn=None):
+    if subset:
+        dataset = load_dataset(id, subset, split=split, streaming=streaming)
+    else:
+        dataset = load_dataset(id, split=split, streaming=streaming)
     if limit:
         dataset = dataset.take(limit)
     for example in dataset:

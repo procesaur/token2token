@@ -75,7 +75,6 @@ class Word2word (Token2token):
         """Build a bilingual lexicon using a parallel corpus."""
 
         print("Step 1. Load tokenizers and build dataset")
-        lang1, lang2 = sorted([lang1, lang2])
         tokenizer1, t1name = load_word_tokenizer(lang1)
         tokenizer2, t2name = load_word_tokenizer(lang2)
         dataset = build_dataset(lang1, lang2, tokenizer1, tokenizer2, datapref, column1, column2, split=split, subset=subset)
@@ -85,7 +84,11 @@ class Word2word (Token2token):
             savedir = get_savedir()
 
         print("Step 3. Compute vocabularies")
-        word2x, x2word, x2cnt, word2y, y2word, y2cnt = get_vocab(dataset.take(n_lines), lang1, lang2, tokenizer1, tokenizer2)
+        word2x, x2word, x2cnt, word2y, y2word, y2cnt = get_vocab(dataset.take(n_lines), lang1, lang2)
+        x_total_count = sum(x2cnt.values())
+        y_total_count = sum(y2cnt.values())
+        xfpm = {x2word[x]:round(1000000*y/x_total_count) for x, y in x2cnt.items()}
+        yfpm = {y2word[x]:round(1000000*y/y_total_count) for x, y in y2cnt.items()}
 
         print("Step 4. Update count dictionaries")
         # monolingual and cross-lingual dictionaries
@@ -97,14 +100,14 @@ class Word2word (Token2token):
         print("Step 5. Translation using CPE scores")
         if rerank_impl == "simple":
             x2ys_cpe = rerank(x2ys, x2cnt, x2xs, rerank_width, n_translations)
-            y2xs_cpe = rerank(y2xs, y2cnt, y2ys, rerank_width, n_translations)
+            #y2xs_cpe = rerank(y2xs, y2cnt, y2ys, rerank_width, n_translations)
         elif rerank_impl == "multiprocessing":
             x2ys_cpe = rerank_mp(
                 x2ys, x2cnt, x2xs, rerank_width, n_translations, num_workers
             )
-            y2xs_cpe = rerank_mp(
-                y2xs, y2cnt, y2ys, rerank_width, n_translations, num_workers
-            )
+            #y2xs_cpe = rerank_mp(
+                #y2xs, y2cnt, y2ys, rerank_width, n_translations, num_workers
+            #)
         else:
             raise ValueError("unrecognized --rerank_impl argument. "
                              "Options: simple, multiprocessing")
@@ -112,7 +115,7 @@ class Word2word (Token2token):
 
         print("Saving...")
         Word2word.save(lang1, lang2, savedir, word2x, word2y, x2word,
-                       x2ys_cpe, y2word, y2xs_cpe, t1name, t2name)
+                      y2word, x2ys_cpe, xfpm, yfpm, t1name, t2name)
 
         if save_pmi:
             print("Step 5-1. Translation using PMI scores")
@@ -125,11 +128,11 @@ class Word2word (Token2token):
 
             x2ys_pmi = get_trans_pmi(x2ys, x2cnt, y2cnt, Nxy, Nx, Ny,
                                      rerank_width, n_translations)
-            y2xs_pmi = get_trans_pmi(y2xs, y2cnt, x2cnt, Nxy, Ny, Nx,
-                                     rerank_width, n_translations)
+            #y2xs_pmi = get_trans_pmi(y2xs, y2cnt, x2cnt, Nxy, Ny, Nx,
+            #                         rerank_width, n_translations)
 
             Word2word.save(lang1, lang2, subdir, word2x, word2y, x2word,
-                           x2ys_pmi, y2word, y2xs_pmi, t1name, t2name)
+                           y2word, x2ys_pmi, xfpm, yfpm, t1name, t2name)
 
         print("Done!")
         return cls(lang1, lang2, word2x, y2word, x2ys_cpe)

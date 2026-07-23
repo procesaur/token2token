@@ -183,6 +183,7 @@ class Token2token:
         print(f"Time taken for step 5: {time() - t0:.2f}s")
 
         print("Saving...")
+        os.makedirs(savedir, exist_ok=True)
         Token2token.save(lang1, lang2, savedir, token2x, token2y, x2token,
                        y2token, x2ys_cpe, xfpm, yfpm, t1name, t2name)
 

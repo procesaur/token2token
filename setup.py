@@ -8,13 +8,14 @@ REQUIRED_PACKAGES = [
     'transformers',
     'numpy',
     'tqdm',
+    'torch'
 ]
 
 setup(
     name="token2token",
-    version="1.0.7",
+    version="1.1",
     packages=find_packages(),
-    author="Mihailo Škorić, based on {Kyubyong Park, Dongwoo Kim, Yo Joong Choe, Taido Purason}",
+    author="Mihailo Škorić",
     author_email="procesaur@gmail.com",
     description="Build and view token mappings between languages and tokenizers",
     install_requires=REQUIRED_PACKAGES,

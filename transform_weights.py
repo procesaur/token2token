@@ -89,21 +89,26 @@ def main():
 
     reinitialize_weights(**vars(args))
 
+
+def test(): 
+    reinitialize_weights(
+        lang1="sr",
+        lang2="ru",
+        model="Qwen/Qwen3.5-0.8B",
+        extended_tokenizer_path="C:/word2word/cyr/my-tokenizer",
+        pruned_tokenizer_path="C:/word2word/cyr/my-pruned-tokenizer",
+        new_vocab_map_path="C:/word2word/cyr/my-tokenizer/new_vocab_map.json",
+        reinitialize_old=True,
+        num_workers=8,
+        no_overlap_data = "procesaur/ParalelniSrEn",
+        no_overlap_lines=10000,
+        datapref = "procesaur/KOPaKS.ru",
+        split = "dev",
+        subset = "ru",
+        n_lines = 20000,
+        savedir = "c:/word2word/test"
+    )
+
 if __name__ == "__main__":
-    if True:
-        reinitialize_weights(
-            lang1="sr",
-            lang2="ru",
-            model="Qwen/Qwen3.5-0.8B",
-            extended_tokenizer_path="C:/word2word/cyr/my-tokenizer",
-            pruned_tokenizer_path="C:/word2word/cyr/my-pruned-tokenizer",
-            new_vocab_map_path="C:/word2word/cyr/my-tokenizer/new_vocab_map.json",
-            reinitialize_old=True,
-            num_workers=8,
-            no_overlap_data = "procesaur/ParalelniSrEn",
-            no_overlap_lines=10000,
-            datapref = "procesaur/KOPaKS.ru",
-            split = "dev",
-            subset = "ru",
-            n_lines = 20000
-        )
+    test()
+    # main()

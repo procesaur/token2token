@@ -121,31 +121,31 @@ from token2token.extend import adapt_tokenizer
 
 extended_save_path, prunned_save_path, vocab_map_save_path = adapt_tokenizer(
     model="Qwen/Qwen3.5-0.8B",
+    lang = "sr",
     dataset="procesaur/sr-tokenizer-test",
     prune_target="cyr",
-    n_lines=500
+    n_lines=10000,
+    reinitialize_old=True,
+    no_overlap_data = "procesaur/KOMPaS",
+    no_overlap_subset="en",
+    no_overlap_lines=10000,
 )
 
 from token2token import reinitialize_weights
 
-    reinitialize_weights(
-        lang1="sr",
-        lang2="ru",
-        model="Qwen/Qwen3.5-0.8B",
-        extended_tokenizer_path=extended_save_path,
-        pruned_tokenizer_path=prunned_save_path,
-        new_vocab_map_path=vocab_map_save_path,
-        reinitialize_old=True,
-        num_workers=8,
-        no_overlap_data = "procesaur/KOPaKS",
-        no_overlap_lines=10000,
-        no_overlap_subset = "en"
-        datapref = "procesaur/KOPaKS",
-        split = "dev",
-        subset = "ru",
-        n_lines = 20000,
-        savedir = "c:/word2word/test"
-    )
+reinitialize_weights(
+    lang1="sr",
+    lang2="ru",
+    model="Qwen/Qwen3.5-0.8B",
+    extended_tokenizer_path="C:/word2word/my-tokenizer",
+    pruned_tokenizer_path="C:/word2word/my-pruned-tokenizer",
+    new_vocab_map_path="C:/word2word/my-tokenizer/extended_new_vocab_map.json",
+    num_workers=8,
+    datapref = "procesaur/KOPaKS",
+    subset = "ru",
+    n_lines = 20000,
+    savedir = "c:/word2word/test"
+)
 ```
 
 ## Methodology

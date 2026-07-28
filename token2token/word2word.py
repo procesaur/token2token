@@ -64,7 +64,6 @@ class Word2word (Token2token):
             split: str = "train",
             subset: str = None,
             n_lines: int = 1000000,
-            cutoff: int = 5000,
             rerank_width: int = 100,
             rerank_impl: str = "multiprocessing",
             n_translations: int = 10,
@@ -92,8 +91,8 @@ class Word2word (Token2token):
 
         print("Step 4. Update count dictionaries")
         # monolingual and cross-lingual dictionaries
-        x2xs, y2ys, x2ys, y2xs, seqlens1, seqlens2 = update_dicts(
-            dataset.take(n_lines), lang1, lang2, word2x, word2y, cutoff, n_lines, save_pmi
+        x2xs, x2ys, seqlens1, seqlens2 = update_dicts(
+            dataset.take(n_lines), lang1, lang2, n_lines, save_pmi, word2x, word2y
         )
 
         t0 = time()

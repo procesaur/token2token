@@ -3,7 +3,7 @@ import os
 from json import dump, load
 from time import time
 
-from token2token.utils import build_dataset, get_savedir, load_hf_tokenizer
+from token2token.utils import build_dataset, get_savedir, load_hf_fast_tokenizer
 from token2token.methods import rerank, rerank_mp, get_trans_pmi, get_vocab, update_dicts
 
 
@@ -111,7 +111,6 @@ class Token2token:
             split: str = "train",
             subset: str = None,
             n_lines: int = 1000000,
-            cutoff: int = 5000,
             rerank_width: int = 100,
             rerank_impl: str = "multiprocessing",
             n_translations: int = 10,
@@ -126,7 +125,7 @@ class Token2token:
         
         if isinstance(tokenizer1, str):
             t1name = tokenizer1
-            tokenizer1 = load_hf_tokenizer(t1name)
+            tokenizer1 = load_hf_fast_tokenizer(t1name)
         else:
             try:
                 t1name = tokenizer1.pretrained_model_name_or_path
@@ -135,7 +134,7 @@ class Token2token:
             
         if isinstance(tokenizer2, str):
             t2name = tokenizer2
-            tokenizer2 = load_hf_tokenizer(t2name)
+            tokenizer2 = load_hf_fast_tokenizer(t2name)
         else:
             try:
                 t2name = tokenizer2.pretrained_model_name_or_path
@@ -156,27 +155,28 @@ class Token2token:
         xfpm = {x2token[x]:round(1000000*y/x_total_count) for x, y in x2cnt.items()}
         yfpm = {y2token[x]:round(1000000*y/y_total_count) for x, y in y2cnt.items()}
 
+        del y2cnt
+
         if vocab_only:
             return xfpm, yfpm, token2x, token2y
 
         print("Step 4. Update count dictionaries")
         # monolingual and cross-lingual dictionaries
-        x2xs, y2ys, x2ys, y2xs, seqlens1, seqlens2 = update_dicts(
-            dataset.take(n_lines), lang1, lang2, token2x, token2y, cutoff, n_lines, save_pmi
+        x2xs, x2ys, seqlens1, seqlens2 = update_dicts(
+            dataset.take(n_lines), lang1, lang2, n_lines, save_pmi
         )
 
         t0 = time()
         print("Step 5. Translation using CPE scores")
         if rerank_impl == "simple":
             x2ys_cpe = rerank(x2ys, x2cnt, x2xs, rerank_width, n_translations)
-            # y2xs_cpe = rerank(y2xs, y2cnt, y2ys, rerank_width, n_translations)
         elif rerank_impl == "multiprocessing":
-            x2ys_cpe = rerank_mp(
-                x2ys, x2cnt, x2xs, rerank_width, n_translations, num_workers
-            )
-            # y2xs_cpe = rerank_mp(
-            #     y2xs, y2cnt, y2ys, rerank_width, n_translations, num_workers
-            # )
+            try:
+                x2ys_cpe = rerank_mp(
+                    x2ys, x2cnt, x2xs, rerank_width, n_translations, num_workers
+                )
+            except:
+                x2ys_cpe = rerank(x2ys, x2cnt, x2xs, rerank_width, n_translations)
         else:
             raise ValueError("unrecognized --rerank_impl argument. "
                              "Options: simple, multiprocessing")
@@ -198,9 +198,6 @@ class Token2token:
 
             x2ys_pmi = get_trans_pmi(x2ys, x2cnt, y2cnt, Nxy, Nx, Ny,
                                      rerank_width, n_translations)
-            #y2xs_pmi = get_trans_pmi(y2xs, y2cnt, x2cnt, Nxy, Ny, Nx,
-             #                        rerank_width, n_translations)
-
             Token2token.save(lang1, lang2, subdir, token2x, token2y, x2token,
                             y2token, x2ys_pmi, xfpm, yfpm, t1name, t2name)
 
@@ -238,7 +235,6 @@ class Token2token:
             with open(path, "w", encoding="utf-8") as f:
                 dump(data, f, ensure_ascii=False, indent=2)
 
-        # lang1 → lang2
         _dump_json(
             os.path.join(savedir, f"{lang1}-{lang2}.json"),
             src_vocab=token2x,

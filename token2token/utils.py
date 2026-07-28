@@ -7,10 +7,18 @@ from transformers import AutoTokenizer
 from typing import Dict, List, Tuple
 from json import loads, dump, load
 from tokenizers.normalizers import Sequence, Replace
+from tokenizers import Tokenizer
 
 
 def load_hf_tokenizer(name):
     tokenizer = AutoTokenizer.from_pretrained(name)
+    return tokenizer
+
+def load_hf_fast_tokenizer(name):
+    try:
+        tokenizer = Tokenizer.from_file(f"{name}/tokenizer.json")
+    except:
+        tokenizer = Tokenizer.from_pretrained(name)
     return tokenizer
 
 
@@ -52,6 +60,18 @@ def build_dataset(lang1, lang2, tokenizer1, tokenizer2, datapref=None, column1="
     def preprocess(example, reverse):
         if reverse:
             return {
+                lang1: tokenizer1.encode(example[column2]),
+                lang2: tokenizer2.encode(example[column1])
+            }
+        else:
+            return {
+                lang1: tokenizer1.encode(example[column1]),
+                lang2: tokenizer2.encode(example[column2])
+            }
+
+    def preprocess_nltk(example, reverse):
+        if reverse:
+            return {
                 lang1: tokenizer1.tokenize(example[column2]),
                 lang2: tokenizer2.tokenize(example[column1])
             }
@@ -88,7 +108,10 @@ def build_dataset(lang1, lang2, tokenizer1, tokenizer2, datapref=None, column1="
             download_mode="force_redownload"  # <--- Forces HF to ignore local cache and redownload
         )
 
-    ds = ds.map(lambda x: preprocess(x, reverse=reverse))
+    if isinstance(tokenizer1, Tokenizer):
+        ds = ds.map(lambda x: preprocess(x, reverse=reverse))
+    else:
+        ds = ds.map(lambda x: preprocess_nltk(x, reverse=reverse))
     return ds
 
 

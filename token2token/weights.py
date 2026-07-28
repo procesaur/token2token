@@ -1,11 +1,10 @@
 from token2token import Token2token
-from transformers import AutoTokenizer, AutoModel
-from token2token.utils import j_read, get_savedir, j_dump
+from transformers import AutoModel
+from token2token.utils import j_read, get_savedir, j_dump, load_hf_fast_tokenizer
 from os import path as px, makedirs
 import torch
+from tokenizers import Tokenizer
 
-
-import torch
 
 def test_embedding_weights(old_model, new_model, id_mapping, atol=1e-3):
     """
@@ -127,12 +126,13 @@ def passtests(id_mapping, model, model_path):
     target_ids = [int(x) for x in list(id_mapping.keys())]
     forward_ok = test_forward_pass(model, target_ids)
     if weights_ok and forward_ok:
-        print("\n🎉 Everything passed! Model is ready to save.")
+        return True
 
 
 def model_transform(
     model_path: str,
     id_mapping: dict,
+    token_mapping: dict,
     tokenizer,
     save_directory: str
 ):
@@ -217,26 +217,22 @@ def model_transform(
     if passtests(id_mapping, model, model_path):
         print(f"Saving updated model and tokenizer to '{save_directory}'...")
         model.save_pretrained(save_directory)
-        tokenizer.save_pretrained(save_directory)
-
+        tokenizer.save(f"{save_directory}/tokenizer.json")
+        j_dump(id_mapping, f"{save_directory}/id_map.json")
+        j_dump(token_mapping, f"{save_directory}/token_map.json") 
         print("Success! Model and tokenizer saved.")
 
 
 def id_mapping_mean(pruned_tokenizer, extended_tokenizer, new_vocab_map):
     new_vocab_map = {extended_tokenizer.decode([y]): y for x, y in new_vocab_map.items()}
     strings, keys = zip(*new_vocab_map.items())
-    batch_encodings = pruned_tokenizer(list(strings), add_special_tokens=False)
-    return dict(zip(keys, batch_encodings["input_ids"]))
+    batch_encodings = pruned_tokenizer.encode_batch(
+        list(strings), 
+        add_special_tokens=False
+    )
+    input_ids = [enc.ids for enc in batch_encodings]
+    return dict(zip(keys, input_ids))
 
-
-def extract_old_vocab(xfpm, yfpm, token2x, token2y, new_vocab_map):
-    results = {}
-    for token, fpm in xfpm.items():
-        if token not in new_vocab_map:
-            yf = yfpm.get(token, 0)
-            if fpm > yf*3 and yf < 1000:
-                results[token] = token2x[token]
-    return results
 
 def extract_mapping(t2t, new_vocab_map):
     id_map = {}
@@ -265,12 +261,6 @@ def reinitialize_weights(
         column1: str = None,
         column2: str = None,
         n_lines=10000000,
-        reinitialize_old: bool = False,
-        no_overlap: str = "en",
-        no_overlap_data: str = None,
-        no_overlap_split: str = "train",
-        no_overlap_subset: str = None,
-        no_overlap_lines: str = None,
         num_workers: int = 16,
         savedir: str = None,
         **kwargs
@@ -279,37 +269,18 @@ def reinitialize_weights(
     if not savedir:  
         savedir = get_savedir()
 
-    extended_tokenizer = AutoTokenizer.from_pretrained(extended_tokenizer_path)
+    extended_tokenizer = load_hf_fast_tokenizer(extended_tokenizer_path)
     map_save_path = px.join(extended_tokenizer_path, "id_mapping.json")
     if px.isfile(map_save_path):
         id_map = j_read(map_save_path)
     
     else:
-        original_tokenizer = AutoTokenizer.from_pretrained(model)
-        pruned_tokenizer = AutoTokenizer.from_pretrained(pruned_tokenizer_path)
+        original_tokenizer = Tokenizer.from_pretrained(model)
+        pruned_tokenizer = load_hf_fast_tokenizer(pruned_tokenizer_path)
         new_vocab_map = j_read(new_vocab_map_path)
         id_map = id_mapping_mean(pruned_tokenizer, extended_tokenizer, new_vocab_map)
 
         if lang1!=lang2:
-            if reinitialize_old:
-                xfpm, yfpm, token2x, token2y = Token2token.make(
-                    lang1,
-                    no_overlap,
-                    extended_tokenizer,
-                    extended_tokenizer,
-                    datapref=no_overlap_data,
-                    split=no_overlap_split,
-                    subset=no_overlap_subset,
-                    column1=column1,
-                    column2=column2,
-                    num_workers=num_workers,
-                    savedir=savedir,
-                    n_lines=no_overlap_lines,
-                    vocab_only=True
-                    )
-                additional_mapping = extract_old_vocab(xfpm, yfpm, token2x, token2y, new_vocab_map)
-                new_vocab_map.update(additional_mapping)
-
             t2t = Token2token.make(
                 lang1,
                 lang2,
@@ -327,6 +298,14 @@ def reinitialize_weights(
             id_map1 = extract_mapping(t2t, new_vocab_map)
             id_map.update(id_map1)
 
-        j_dump(id_map, map_save_path) 
+        decoded_keys = [extended_tokenizer.decode([x_id]) for x_id in id_map.keys()]
+        all_y_ids = [[y_id] for y_ids in id_map.values() for y_id in y_ids]
+        decoded_y_tokens = original_tokenizer.decode_batch(all_y_ids)
+        token_mapping = {}
+        y_idx = 0
+        for x_text, y_ids in zip(decoded_keys, id_map.values()):
+            count = len(y_ids)
+            token_mapping[x_text] = decoded_y_tokens[y_idx : y_idx + count]
+            y_idx += count
 
-    model_transform(model, id_map, extended_tokenizer, savedir)
+    model_transform(model, id_map, token_mapping, extended_tokenizer, savedir)

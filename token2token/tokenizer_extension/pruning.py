@@ -4,14 +4,12 @@ from tokenizers import Tokenizer
 from re import compile
 
 
-
 patterns = {
     "zh" : compile(r'[\u4e00-\u9fff\u3400-\u4dbf]'),
     "cyr": compile(r'[\u0400-\u04FF\u0500-\u052F]'),
     "both": compile(r'[\u4e00-\u9fff\u3400-\u4dbf\u0400-\u04FF\u0500-\u052F]'),
     "all" : compile(r'[\s\S]')
 } 
-
 
 def prune_tokenizer(tokenizer_name, prune_target="both", no_translit=False):
     if prune_target not in patterns:

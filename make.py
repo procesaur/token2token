@@ -61,8 +61,6 @@ def main():
 
     parser.add_argument('--n_lines', type=int, default=100000000,
                         help="number of parallel sentences used")
-    parser.add_argument('--cutoff', type=int, default=5000,
-                        help="number of words that are used in calculating collocates within each language")
     parser.add_argument('--rerank_width', default=100, type=int,
                         help="maximum number of target-side collocates considered for reranking")
     parser.add_argument('--rerank_impl', default="multiprocessing", type=str,
@@ -96,7 +94,7 @@ def main():
         Word2word.make(**vars(args))
 
 def test():
-    en2fr = Token2token.make("en", "fr", "Qwen/Qwen3.5-0.8B", "Qwen/Qwen3.5-0.8B", n_lines=10000)
+    en2fr = Token2token.make("en", "fr", "Qwen/Qwen3.5-0.8B", "Qwen/Qwen3.5-0.8B", n_lines=50000)
     print(en2fr("Ġlives"))
 
     my_srhr = Word2word.make("sr", "hr", n_lines=50000)

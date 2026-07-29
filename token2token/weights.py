@@ -1,9 +1,10 @@
 from token2token import Token2token
-from transformers import AutoModel
+from transformers import AutoConfig, AutoModelForCausalLM
 from token2token.utils import j_read, get_savedir, j_dump, load_hf_fast_tokenizer
 from os import path as px, makedirs
 import torch
 from tokenizers import Tokenizer
+import transformers
 
 
 def test_embedding_weights(old_model, new_model, id_mapping, atol=1e-3):
@@ -91,8 +92,6 @@ def test_forward_pass(model, target_ids, max_seq_len=128):
 
     # 2. Slice/Chunk into a safe, short sequence length (e.g., first 128 tokens)
     sample_ids = int_target_ids[:max_seq_len]
-    
-    # Shape: (batch_size=1, sequence_length=128)
     test_input_ids = torch.tensor([sample_ids], dtype=torch.long, device=model.device)
 
     with torch.no_grad():
@@ -112,21 +111,162 @@ def test_forward_pass(model, target_ids, max_seq_len=128):
             print(f"❌ Forward pass failed with error: {e}")
             return False
 
-def passtests(id_mapping, model, model_path):
-    original_model = AutoModel.from_pretrained(
-        model_path,
-        torch_dtype="auto",  # Preserves model's original float precision
-    )
 
-    model = model.to("cpu")
+def passtests(model, id_mapping, model_path):
+    original_model = load_model_dynamically(model_path, device="cpu")
     print("--- Running Weight Assertions ---")
     weights_ok = test_embedding_weights(original_model, model, id_mapping)
-
     print("\n--- Running Forward Pass Test ---")
     target_ids = [int(x) for x in list(id_mapping.keys())]
     forward_ok = test_forward_pass(model, target_ids)
     if weights_ok and forward_ok:
         return True
+
+
+def load_model_dynamically(model_path: str, device: str = "cpu"):
+    """
+    Reads the model configuration and loads it using its specific CausalLM 
+    or primary class dynamically.
+    """
+    config = AutoConfig.from_pretrained(model_path)
+    
+    # Extract registered architecture class name if present (e.g., 'Qwen2ForCausalLM')
+    arch_name = config.architectures[0] if getattr(config, "architectures", None) else None
+    
+    model_cls = None
+    if arch_name and hasattr(transformers, arch_name):
+        model_cls = getattr(transformers, arch_name)
+    else:
+        # Fallback to standard CausalLM loader if explicit class isn't directly exposed
+        model_cls = AutoModelForCausalLM
+
+    print(f"Loading '{model_path}' using dynamic class: {model_cls.__name__}")
+    model = model_cls.from_pretrained(model_path, config=config, torch_dtype="auto").to(device)
+    return model
+
+
+def extract_embedding_layers(model):
+    """
+    Extracts the input embeddings, output embeddings, and output biases from a model.
+    Handles weight-tying logic automatically.
+
+    Returns:
+        tuple: (input_layer, input_weights, output_layer, output_weights, output_bias, is_tied)
+    """
+    input_layer = model.get_input_embeddings()
+    input_weights = input_layer.weight.data
+
+    output_layer = model.get_output_embeddings()
+    is_tied = getattr(model.config, "tie_word_embeddings", False)
+
+    # Output weights are only untied/separate if is_tied is False
+    output_weights = (
+        output_layer.weight.data 
+        if (output_layer is not None and not is_tied) 
+        else None
+    )
+
+    # Output bias check
+    output_bias = (
+        output_layer.bias.data 
+        if (output_layer is not None and getattr(output_layer, "bias", None) is not None) 
+        else None
+    )
+
+    return input_layer, input_weights, output_layer, output_weights, output_bias, is_tied
+
+
+def finalize_and_save_model(
+    model,
+    tokenizer,
+    save_directory: str,
+    id_mapping: dict = None,
+    token_mapping: dict = None,
+    model_path: str = None,
+    run_tests: bool = True
+):
+    """
+    Handles weight re-tying, optional test execution, and saving of model, 
+    tokenizer, and mapping metadata.
+    """
+    is_tied = getattr(model.config, "tie_word_embeddings", False)
+    if is_tied:
+        model.tie_weights()
+    makedirs(save_directory, exist_ok=True)
+
+    if run_tests and id_mapping is not None and model_path is not None:
+        if not passtests(model, id_mapping, model_path):
+            raise RuntimeError("Model verification tests failed! Model was not saved.")
+
+    print(f"Saving model and associated artifacts to '{save_directory}'...")
+    model.save_pretrained(save_directory)
+    if tokenizer is not None:
+        tokenizer.save(px.join(save_directory, "tokenizer.json"))
+    if id_mapping is not None:
+        j_dump(id_mapping, px.join(save_directory, "id_map.json"))
+    if token_mapping is not None:
+        j_dump(token_mapping, px.join(save_directory, "token_map.json"))
+    print("Success! Model and artifacts saved cleanly.")
+
+
+def average_model_embeddings(
+    model_paths: list[str],
+    save_directory: str,
+    tokenizer=None
+):
+    """
+    Loads multiple models, averages their input embedding weights, output embedding weights 
+    (if untied), and output biases across all models, and saves the resulting model.
+    """
+    if not model_paths:
+        raise ValueError("The `model_paths` list cannot be empty.")
+
+    num_models = len(model_paths)
+    print(f"Starting weight averaging across {num_models} models...")
+
+    # Step 1: Load base model and retrieve embedding layers
+    print(f"Loading base model structure from: '{model_paths[0]}'...")
+    base_model = load_model_dynamically(model_paths[0], device="cpu")
+    input_layer, input_weights, output_layer, output_weights, output_bias, _ = extract_embedding_layers(base_model)
+
+    # Accumulators stored in float32 for summation precision
+    accum_input = input_weights.clone().to(torch.float32)
+    accum_output = output_weights.clone().to(torch.float32) if output_weights is not None else None
+    accum_bias = output_bias.clone().to(torch.float32) if output_bias is not None else None
+
+    # Step 2: Accumulate weights from remaining models
+    for path in model_paths[1:]:
+        print(f"Accumulating weights from: '{path}'...")
+        curr_model = load_model_dynamically(path, device="cpu")
+        _, curr_in, _, curr_out, curr_b, _ = extract_embedding_layers(curr_model)
+
+        accum_input += curr_in.to(torch.float32)
+        if accum_output is not None and curr_out is not None:
+            accum_output += curr_out.to(torch.float32)
+        if accum_bias is not None and curr_b is not None:
+            accum_bias += curr_b.to(torch.float32)
+
+        del curr_model
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+
+    # Step 3: Compute mean and update base model
+    print("Computing mean and updating base model tensors...")
+    with torch.no_grad():
+        input_layer.weight.data.copy_((accum_input / num_models).to(input_layer.weight.dtype))
+
+        if accum_output is not None and output_layer is not None:
+            output_layer.weight.data.copy_((accum_output / num_models).to(output_layer.weight.dtype))
+
+        if accum_bias is not None and output_layer is not None:
+            output_layer.bias.data.copy_((accum_bias / num_models).to(output_layer.bias.dtype))
+
+    finalize_and_save_model(
+        model=base_model,
+        tokenizer=tokenizer,
+        save_directory=save_directory,
+        run_tests=False
+    )
 
 
 def model_transform(
@@ -138,46 +278,13 @@ def model_transform(
 ):
     """
     Loads a pretrained model, replaces specified token embeddings and output biases 
-    with the median vector of mapped source tokens, and saves the updated model.
-
-    Args:
-        model_path (str): Hugging Face Hub ID or local directory path.
-        id_mapping (dict): Dict mapping target token IDs to source ID lists, 
-                           e.g., {0: [100, 101], 1: [100, 182]}
-        save_directory (str): Destination path to save model & tokenizer.
+    with the mean vector of mapped source tokens, and saves the updated model.
     """
     print(f"Loading tokenizer and model from '{model_path}'...")
-    model = AutoModel.from_pretrained(
-        model_path,
-        torch_dtype="auto",  # Preserves model's original float precision
-    )
-
-    model = model.to("cpu")
-    # 1. Retrieve Input Embeddings Layer
-    input_layer = model.get_input_embeddings()
-    input_weights = input_layer.weight.data
-
-    # 2. Retrieve Output Layer & Check Weight-Tying Structure
-    output_layer = model.get_output_embeddings()
-    is_tied = getattr(model.config, "tie_word_embeddings", False)
-
-    # Output weights are only untied/separate if is_tied is False
-    output_weights = (
-        output_layer.weight.data 
-        if (output_layer is not None and not is_tied) 
-        else None
-    )
-
-    # Check if the output linear layer contains a bias tensor
-    output_bias = (
-        output_layer.bias.data 
-        if (output_layer is not None and getattr(output_layer, "bias", None) is not None) 
-        else None
-    )
+    model = load_model_dynamically(model_path, device="cpu")
+    input_layer, input_weights, output_layer, output_weights, output_bias, _ = extract_embedding_layers(model)
 
     print(f"Modifying parameters for {len(id_mapping)} tokens...")
-    
-    # Disable autograd for safe in-place memory modifications
     with torch.no_grad():
         orig_input = input_weights.clone()
         orig_output = output_weights.clone() if output_weights is not None else None
@@ -190,37 +297,27 @@ def model_transform(
             target_id = int(target_id)
             source_ids = [int(s) for s in source_ids]
 
-            #--- A. Update Input Embeddings ---
-            src_input_vecs = orig_input[source_ids]
-            mean_input_vec = torch.mean(src_input_vecs, dim=0)
-            input_weights[target_id] = mean_input_vec
+            # Update Input Embeddings
+            input_weights[target_id] = torch.mean(orig_input[source_ids], dim=0)
 
-            # --- B. Update Output Weights (If separate/untied) ---
+            # Update Output Weights (if untied)
             if output_weights is not None and orig_output is not None:
-                src_output_vecs = orig_output[source_ids]
-                mean_output_vec = torch.mean(src_output_vecs, dim=0)
-                output_weights[target_id] = mean_output_vec
+                output_weights[target_id] = torch.mean(orig_output[source_ids], dim=0)
 
-            # --- C. Update Output Bias (If bias exists) ---
+            # Update Output Bias (if present)
             if output_bias is not None and orig_bias is not None:
-                src_biases = orig_bias[source_ids]
-                mean_bias = torch.mean(src_biases, dim=0)
-                output_bias[target_id] = mean_bias
+                output_bias[target_id] = torch.mean(orig_bias[source_ids], dim=0)
 
-    # Re-tie weights if applicable (good practice for HF models)
-    if is_tied:
-        model.tie_weights()
-
-    # Save everything locally
-    makedirs(save_directory, exist_ok=True)
-
-    if passtests(id_mapping, model, model_path):
-        print(f"Saving updated model and tokenizer to '{save_directory}'...")
-        model.save_pretrained(save_directory)
-        tokenizer.save(f"{save_directory}/tokenizer.json")
-        j_dump(id_mapping, f"{save_directory}/id_map.json")
-        j_dump(token_mapping, f"{save_directory}/token_map.json") 
-        print("Success! Model and tokenizer saved.")
+    # Run verification tests and save finalized model & metadata
+    finalize_and_save_model(
+        model=model,
+        tokenizer=tokenizer,
+        save_directory=save_directory,
+        id_mapping=id_mapping,
+        token_mapping=token_mapping,
+        model_path=model_path,
+        run_tests=True
+    )
 
 
 def id_mapping_mean(pruned_tokenizer, extended_tokenizer, new_vocab_map):
@@ -270,9 +367,11 @@ def reinitialize_weights(
         savedir = get_savedir()
 
     extended_tokenizer = load_hf_fast_tokenizer(extended_tokenizer_path)
-    map_save_path = px.join(extended_tokenizer_path, "id_mapping.json")
-    if px.isfile(map_save_path):
+    map_save_path = px.join(extended_tokenizer_path, "id_map.json")
+    token_map_save_path = px.join(extended_tokenizer_path, "token_map.json")
+    if px.isfile(map_save_path) and px.isfile(token_map_save_path):
         id_map = j_read(map_save_path)
+        token_mapping = j_read(token_map_save_path)
     
     else:
         original_tokenizer = Tokenizer.from_pretrained(model)

@@ -112,7 +112,7 @@ class Token2token:
             subset: str = None,
             n_lines: int = 1000000,
             rerank_width: int = 100,
-            rerank_impl: str = "multiprocessing",
+            rerank_impl: str = "simple",
             n_translations: int = 10,
             save_pmi: bool = False,
             savedir: str = None,

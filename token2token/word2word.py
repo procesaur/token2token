@@ -1,8 +1,10 @@
 # -*- coding: utf-8 -*-
 import os
 from time import time
-from token2token.token2token import Token2token
+import re
+from typing import List
 
+from token2token.token2token import Token2token
 from token2token.utils import build_dataset, get_savedir
 from token2token.methods import rerank, rerank_mp, get_trans_pmi, get_vocab, update_dicts
 
@@ -32,9 +34,38 @@ def load_word_tokenizer(lang):
         import pyarabic.araby as araby
         tokenizer, name = araby, "araby"
     else:
-        from nltk.tokenize import ToktokTokenizer
-        tokenizer, name = ToktokTokenizer(), "nltk"
+        tokenizer, name = WordTokenizer(), "wordTokenizer"
     return tokenizer, name
+
+
+mapping = {
+        "Љ": "Lj", "љ": "lj", "Њ": "Nj", "њ": "nj", "Џ": "Dž", "џ": "dž",
+        "А": "A", "а": "a", "Б": "B", "б": "b", "В": "V", "в": "v",
+        "Г": "G", "г": "g", "Д": "D", "д": "d", "Ђ": "Đ", "ђ": "đ",
+        "Е": "E", "е": "e", "Ж": "Ž", "ж": "ž", "З": "Z", "з": "z",
+        "И": "I", "и": "i", "Ј": "J", "ј": "j", "К": "K", "к": "k",
+        "Л": "L", "л": "l", "М": "M", "м": "m", "Н": "N", "н": "n",
+        "О": "O", "о": "o", "П": "P", "п": "p", "Р": "R", "р": "r",
+        "С": "S", "с": "s", "Т": "T", "т": "t", "Ћ": "Ć", "ћ": "ć",
+        "У": "U", "у": "u", "Ф": "F", "ф": "f", "Х": "H", "х": "h",
+        "Ц": "C", "ц": "c", "Ч": "Č", "ч": "č", "Ш": "Š", "ш": "š",
+    }
+
+class WordTokenizer:
+    def __init__(self, lower: bool = True, trans: bool = True):
+        self.lower = lower
+        self.trans = trans
+        self.word_pattern = re.compile(r'[^\W\d_]+')
+
+    def cyr2lat(self, text: str) -> str:
+        return "".join(mapping.get(ch, ch) for ch in text)
+
+    def tokenize(self, text: str) -> List[str]:
+        if self.lower:
+            text = text.lower()
+        if self.trans:
+            text = self.cyr2lat(text)
+        return self.word_pattern.findall(text)
 
 
 class Word2word (Token2token):

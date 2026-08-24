@@ -9,8 +9,8 @@ import transformers
 
 def test_embedding_weights(old_model, new_model, id_mapping, atol=1e-3):
     """
-    Verifies that target token embeddings in new_model equal the mean of source
-    token embeddings taken from old_model.
+    Verifies that target token embeddings in new_model equal the length-weighted
+    average of source token embeddings taken from old_model.
     """
     # 1. Source weights from OLD model
     old_input = old_model.get_input_embeddings().weight.data
@@ -27,36 +27,47 @@ def test_embedding_weights(old_model, new_model, id_mapping, atol=1e-3):
     passed_count = 0
     failed_count = 0
 
-    for target_id, source_ids in id_mapping.items():
-        if not source_ids:
+    for target_id, source_len_map in id_mapping.items():
+        if not source_len_map:
             continue
 
         target_id = int(target_id)
-        source_ids = [int(s) for s in source_ids]
+        
+        # Unpack subword IDs and character lengths
+        source_ids = [int(s) for s in source_len_map.keys()]
+        lengths = list(source_len_map.values())
+        
+        # Calculate expected weights tensor
+        lengths_tensor = torch.tensor(
+            lengths, 
+            dtype=old_input.dtype, 
+            device=old_input.device
+        )
+        weights = lengths_tensor / lengths_tensor.sum()
 
         # --- A. Test Input Embeddings ---
-        expected_input_mean = torch.mean(old_input[source_ids], dim=0)
+        expected_input_vec = torch.matmul(weights, old_input[source_ids])
         actual_input_vec = new_input[target_id]
         
-        if torch.allclose(actual_input_vec, expected_input_mean, atol=atol):
+        if torch.allclose(actual_input_vec, expected_input_vec, atol=atol):
             passed_count += 1
         else:
             failed_count += 1
 
         # --- B. Test Output Weights (if untied) ---
         if new_output is not None and old_output is not None:
-            expected_output_mean = torch.mean(old_output[source_ids], dim=0)
+            expected_output_vec = torch.matmul(weights, old_output[source_ids])
             actual_output_vec = new_output[target_id]
-            if torch.allclose(actual_output_vec, expected_output_mean, atol=atol):
+            if torch.allclose(actual_output_vec, expected_output_vec, atol=atol):
                 passed_count += 1
             else:
                 failed_count += 1
 
         # --- C. Test Output Bias (if present) ---
         if new_bias is not None and old_bias is not None:
-            expected_bias_mean = torch.mean(old_bias[source_ids], dim=0)
+            expected_bias_val = torch.matmul(weights, old_bias[source_ids])
             actual_bias_val = new_bias[target_id]
-            if torch.allclose(actual_bias_val, expected_bias_mean, atol=atol):
+            if torch.allclose(actual_bias_val, expected_bias_val, atol=atol):
                 passed_count += 1
             else:
                 failed_count += 1
@@ -290,23 +301,34 @@ def model_transform(
         orig_output = output_weights.clone() if output_weights is not None else None
         orig_bias = output_bias.clone() if output_bias is not None else None
 
-        for target_id, source_ids in id_mapping.items():
-            if not source_ids:
+        for target_id, weight_map in id_mapping.items():
+            if not weight_map:
                 continue
 
             target_id = int(target_id)
-            source_ids = [int(s) for s in source_ids]
+            source_ids = [int(s) for s in weight_map.keys()]
+            lengths = list(weight_map.values())
 
+            if sum(lengths) == 0:
+                continue
+
+            lengths_tensor = torch.tensor(
+                lengths, 
+                dtype=orig_input.dtype, 
+                device=orig_input.device
+            )
+            weights = lengths_tensor / lengths_tensor.sum() # Shape: (num_subwords,)
+            new_input_vec = torch.matmul(weights, orig_input[source_ids])
             # Update Input Embeddings
-            input_weights[target_id] = torch.mean(orig_input[source_ids], dim=0)
+            input_weights[target_id] = new_input_vec
 
-            # Update Output Weights (if untied)
+            # 2. Update Output Weights: Length-weighted average
             if output_weights is not None and orig_output is not None:
-                output_weights[target_id] = torch.mean(orig_output[source_ids], dim=0)
+                output_weights[target_id] = new_input_vec
 
-            # Update Output Bias (if present)
+            # 3. Update Output Bias (if present): Length-weighted average
             if output_bias is not None and orig_bias is not None:
-                output_bias[target_id] = torch.mean(orig_bias[source_ids], dim=0)
+                output_bias[target_id] = new_input_vec
 
     # Run verification tests and save finalized model & metadata
     finalize_and_save_model(
@@ -320,15 +342,30 @@ def model_transform(
     )
 
 
-def id_mapping_mean(pruned_tokenizer, extended_tokenizer, new_vocab_map):
+def id_mapping_subword(pruned_tokenizer, extended_tokenizer, new_vocab_map):
     new_vocab_map = {extended_tokenizer.decode([y]): y for x, y in new_vocab_map.items()}
     strings, keys = zip(*new_vocab_map.items())
     batch_encodings = pruned_tokenizer.encode_batch(
         list(strings), 
         add_special_tokens=False
     )
-    input_ids = [enc.ids for enc in batch_encodings]
-    return dict(zip(keys, input_ids))
+    mapping = {}
+    for new_token_id, enc in zip(keys, batch_encodings):
+        subword_len_map = {}
+        for sub_id, token_str in zip(enc.ids, enc.tokens):
+            # Clean BPE metadata characters directly from the string
+            clean_str = (
+                token_str
+                .replace("Ġ", "")
+                .replace(" ", "")
+                .replace("##", "")
+                .replace("</w>", "")
+            )
+            # Ensure minimum length of 1
+            subword_len_map[sub_id] = max(1, len(clean_str))
+            
+        mapping[new_token_id] = subword_len_map   
+    return mapping
 
 
 def extract_mapping(t2t, new_vocab_map):
@@ -337,13 +374,11 @@ def extract_mapping(t2t, new_vocab_map):
         if id in t2t.x2ys:
             try:
                 nid = t2t.x2ys[id][0][0]
-                id_map[id] = [nid]
+                id_map[id] = [{nid:1}]
             except:
                 pass
     return id_map
 
-def extract_weights_at_idx(idx):
-    return []
 
 def reinitialize_weights(
         lang1: str,
@@ -377,7 +412,7 @@ def reinitialize_weights(
         original_tokenizer = Tokenizer.from_pretrained(model)
         pruned_tokenizer = load_hf_fast_tokenizer(pruned_tokenizer_path)
         new_vocab_map = j_read(new_vocab_map_path)
-        id_map = id_mapping_mean(pruned_tokenizer, extended_tokenizer, new_vocab_map)
+        id_map = id_mapping_subword(pruned_tokenizer, extended_tokenizer, new_vocab_map)
 
         if lang1!=lang2:
             t2t = Token2token.make(

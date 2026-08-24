@@ -118,6 +118,7 @@ class Token2token:
             savedir: str = None,
             num_workers: int = 8,
             vocab_only: bool = False,
+            xs: list = None
     ):
         """Build a token mapping using a parallel corpus."""
 

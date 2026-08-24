@@ -13,7 +13,7 @@ REQUIRED_PACKAGES = [
 
 setup(
     name="token2token",
-    version="1.1.3",
+    version="1.2",
     packages=find_packages(),
     author="Mihailo Škorić",
     author_email="procesaur@gmail.com",

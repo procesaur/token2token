@@ -101,6 +101,7 @@ class Word2word (Token2token):
             save_pmi: bool = False,
             savedir: str = None,
             num_workers: int = 8,
+            min_frequency: int = 3,
     ):
         """Build a bilingual lexicon using a parallel corpus."""
 
@@ -115,6 +116,14 @@ class Word2word (Token2token):
 
         print("Step 3. Compute vocabularies")
         word2x, x2word, x2cnt, word2y, y2word, y2cnt = get_vocab(dataset.take(n_lines), lang1, lang2)
+
+        x2cnt = {word: count for word, count in x2cnt.items() if count >= min_frequency}
+        y2cnt = {word: count for word, count in y2cnt.items() if count >= min_frequency}
+        x2word = list(x2cnt.keys())
+        word2x = {word: i for i, word in enumerate(x2word)}
+        y2word = list(y2cnt.keys())
+        word2y = {word: i for i, word in enumerate(y2word)}
+
         x_total_count = sum(x2cnt.values())
         y_total_count = sum(y2cnt.values())
         xfpm = {x2word[x]:round(1000000*y/x_total_count) for x, y in x2cnt.items()}

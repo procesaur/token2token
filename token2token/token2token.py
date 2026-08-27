@@ -4,7 +4,7 @@ from json import dump, load
 from time import time
 
 from token2token.utils import build_dataset, get_savedir, load_hf_fast_tokenizer
-from token2token.methods import rerank, rerank_mp, get_trans_pmi, get_vocab, update_dicts
+from token2token.methods import rerank, get_trans_pmi, get_vocab, update_dicts
 
 
 class Token2token:
@@ -112,13 +112,10 @@ class Token2token:
             subset: str = None,
             n_lines: int = 1000000,
             rerank_width: int = 100,
-            rerank_impl: str = "simple",
             n_translations: int = 10,
             save_pmi: bool = False,
             savedir: str = None,
-            num_workers: int = 8,
             vocab_only: bool = False,
-            xs: list = None
     ):
         """Build a token mapping using a parallel corpus."""
 
@@ -164,23 +161,12 @@ class Token2token:
         print("Step 4. Update count dictionaries")
         # monolingual and cross-lingual dictionaries
         x2xs, x2ys, seqlens1, seqlens2 = update_dicts(
-            dataset.take(n_lines), lang1, lang2, n_lines, save_pmi
+            dataset.take(n_lines), lang1, lang2, n_lines, save_pmi, x2cnt, (len(token2x), len(token2y)) 
         )
 
         t0 = time()
         print("Step 5. Translation using CPE scores")
-        if rerank_impl == "simple":
-            x2ys_cpe = rerank(x2ys, x2cnt, x2xs, rerank_width, n_translations)
-        elif rerank_impl == "multiprocessing":
-            try:
-                x2ys_cpe = rerank_mp(
-                    x2ys, x2cnt, x2xs, rerank_width, n_translations, num_workers
-                )
-            except:
-                x2ys_cpe = rerank(x2ys, x2cnt, x2xs, rerank_width, n_translations)
-        else:
-            raise ValueError("unrecognized --rerank_impl argument. "
-                             "Options: simple, multiprocessing")
+        x2ys_cpe = rerank(x2xs, x2ys, rerank_width, n_translations)
         print(f"Time taken for step 5: {time() - t0:.2f}s")
 
         print("Saving...")

@@ -27,7 +27,6 @@ Authors:
 """
 
 import argparse
-
 from token2token import Token2token, Word2word
 
 
@@ -63,8 +62,6 @@ def main():
                         help="number of parallel sentences used")
     parser.add_argument('--rerank_width', default=100, type=int,
                         help="maximum number of target-side collocates considered for reranking")
-    parser.add_argument('--rerank_impl', default="multiprocessing", type=str,
-                        help="choice of reranking implementation: simple, multiprocessing (default)")
     parser.add_argument('--cased', dest="cased", action="store_true",
                         help="Keep the case.")
     parser.add_argument('--n_translations', type=int, default=10,
@@ -77,8 +74,6 @@ def main():
                         help="location to store bilingual lexicons."
                              "make sure to use this input when loading from "
                              "a custom-bulit lexicon.")
-    parser.add_argument('--num_workers', default=16, type=int,
-                        help="number of workers used for multiprocessing")
     parser.add_argument('--vocab_only', action='store_true',
                             help="Return only the vocab frequencies, without crosslingual mapping")
     args = parser.parse_args()
@@ -94,12 +89,12 @@ def main():
         Word2word.make(**vars(args))
 
 def test():
-    en2fr = Token2token.make("en", "fr", "Qwen/Qwen3.5-0.8B", "Qwen/Qwen3.5-0.8B", n_lines=50000)
+    en2fr = Token2token.make("en", "fr", "Qwen/Qwen3.5-0.8B", "Qwen/Qwen3.5-0.8B", n_lines=1000000)
     print(en2fr("Ġlives"))
 
-    my_srhr = Word2word.make("sr", "hr", n_lines=50000)
+    my_srhr = Word2word.make("sr", "hr", n_lines=1000000)
     print(my_srhr("jabuka"))
 
 if __name__ == "__main__":
-    # test()
-    main()
+    test()
+    #main()

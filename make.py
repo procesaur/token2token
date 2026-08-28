@@ -89,12 +89,19 @@ def main():
         Word2word.make(**vars(args))
 
 def test():
-    en2fr = Token2token.make("en", "fr", "Qwen/Qwen3.5-0.8B", "Qwen/Qwen3.5-0.8B", n_lines=50000, savedir="ttt")
+    en2fr = Token2token.make("en", "fr", "Qwen/Qwen3.5-0.8B", "Qwen/Qwen3.5-0.8B", n_lines=5000)
     print(en2fr("Ġlives"))
+    en2fr.save("test")
 
-    my_srhr = Word2word.make("sr", "hr", n_lines=50000, savedir="ttt")
+    my_srhr = Word2word.make("sr", "hr", n_lines=5000)
     print(my_srhr("jabuka"))
+    my_srhr.save("test")
+
+def test2():
+    w2w = Word2word(path="C:/Users/L11/Downloads/sr-en.json")
+    w2w.save_mapping(savedir="test")
 
 if __name__ == "__main__":
     # test()
-    main()
+    test2()
+    # main()

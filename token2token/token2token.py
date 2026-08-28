@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
-import os
-from json import dump, load
+from os import makedirs, path as px
+from json import dump, load, dumps
 from time import time
 
 from token2token.utils import build_dataset, get_savedir, load_hf_fast_tokenizer
@@ -24,7 +24,7 @@ class Token2token:
         my_en2fr = Token2token.make("sr", "hr", "procesaur/gpt2-srlat", "procesaur/gpt2-srlat", "Helsinki-NLP/OpenSubtitles2024", column1="src_text", column2="tgt_text")
     """
 
-    def __init__(self, lang1=None, lang2=None, token2x=None, token2y=None, x2token=None, y2token=None, x2ys=None, xfpm=None, yfpm=None, path=None,):
+    def __init__(self, lang1=None, lang2=None, token2x=None, token2y=None, x2token=None, y2token=None, x2ys=None, xfpm=None, yfpm=None, t1name=None, t2name=None, path=None,):
         """Loads this object with a custom-built token mapping.
 
         savedir is the directory containing {lang1}-{lang2}.pkl files
@@ -33,18 +33,19 @@ class Token2token:
 
         if all(d is not None for d in [lang1, lang2, token2x, token2y, x2token, y2token, x2ys, xfpm, yfpm]):
             # load a custom-built token2token bilingual tool mapping
-            self.lang1, self.lang2, self.token2x, self.token2y, self.x2token, self.y2token, self.x2ys, self.xfpm, self.yfpm = lang1, lang2, token2x, token2y, x2token, y2token, x2ys, xfpm, yfpm
+            self.lang1, self.lang2, self.token2x, self.token2y, self.x2token  = lang1, lang2, token2x, token2y, x2token, 
+            self.y2token, self.x2ys, self.xfpm, self.yfpm, self.t1name, self.t2name = y2token, x2ys, xfpm, yfpm, t1name, t2name
             return  
 
         if not path:
             if lang1 and lang2:
                 savedir = get_savedir()
-                path = os.path.join(savedir, f"{lang1}-{lang2}.json")
+                path = px.join(savedir, f"{lang1}-{lang2}.json")
 
             else:
                  raise ValueError("you have to define either correct path or lang1 and lang2.")
 
-        assert os.path.exists(path), f"processed lexicon file not found at {path}"
+        assert px.exists(path), f"processed lexicon file not found at {path}"
         with open(path, "r", encoding="utf-8") as f:
             data = load(f)
 
@@ -56,6 +57,7 @@ class Token2token:
         self.token2x = data["src_vocab"]
         self.token2y = data["tgt_vocab"]
         self.y2token = {y:x for x,y in self.token2y.items()}
+        self.x2token = {y:x for x,y in self.token2x.items()}
 
         # Rebuild translations into list of (target, score) tuples
         x2ys = {}
@@ -75,9 +77,7 @@ class Token2token:
             ys = self.x2ys[x]
             tokens = {self.y2token[y[0]] : y[1] for y in ys[:n_best]}
         except KeyError:
-            raise KeyError(
-                f"query token {query} not found in the token mapping."
-            )
+            tokens = {}
         return tokens
 
     def __len__(self):
@@ -164,75 +164,109 @@ class Token2token:
             dataset.take(n_lines), lang1, lang2, n_lines, save_pmi, x2cnt, (len(token2x), len(token2y)) 
         )
 
-        t0 = time()
-        print("Step 5. Translation using CPE scores")
-        x2ys_cpe = rerank(x2xs, x2ys, rerank_width, n_translations)
-        print(f"Time taken for step 5: {time() - t0:.2f}s")
-
-        print("Saving...")
-        os.makedirs(savedir, exist_ok=True)
-        Token2token.save(lang1, lang2, savedir, token2x, token2y, x2token,
-                       y2token, x2ys_cpe, xfpm, yfpm, t1name, t2name)
-
         if save_pmi:
             print("Step 5-1. Translation using PMI scores")
-            subdir = os.path.join(savedir, "pmi")
-            os.makedirs(subdir, exist_ok=True)
+            subdir = px.join(savedir, "pmi")
+            makedirs(subdir, exist_ok=True)
             Nx = sum(seqlens1)
             Ny = sum(seqlens2)
             Nxy = sum([seqlen_x * seqlen_y
                        for seqlen_x, seqlen_y in zip(seqlens1, seqlens2)])
 
-            x2ys_pmi = get_trans_pmi(x2ys, x2cnt, y2cnt, Nxy, Nx, Ny,
+            x2ys = get_trans_pmi(x2ys, x2cnt, y2cnt, Nxy, Nx, Ny,
                                      rerank_width, n_translations)
-            Token2token.save(lang1, lang2, subdir, token2x, token2y, x2token,
-                            y2token, x2ys_pmi, xfpm, yfpm, t1name, t2name)
+        else:
+            t0 = time()
+            print("Step 5. Translation using CPE scores")
+            x2ys = rerank(x2xs, x2ys, rerank_width, n_translations)
+            print(f"Time taken for step 5: {time() - t0:.2f}s")
 
-        print("Done!")
-        return cls(lang1, lang2, token2x, token2y, x2token, y2token, x2ys_cpe, xfpm, yfpm, savedir)
+        obj = cls(lang1, lang2, token2x, token2y, x2token, y2token, x2ys, xfpm, yfpm, t1name, t2name, savedir) 
+        obj.save(savedir)
+        return obj
+        
+    @staticmethod
+    def _dump_jsonl(path, translations, id2token_src, id2token_tgt, limit):
+        """Helper to write bilingual dictionary JSON with tokens instead of IDs."""
+        norm_translations = {}
+        for src_id, tgts in translations.items():
+            if not tgts:
+                continue
+            
+            norm_translations[id2token_src[int(src_id)]] = [
+                {id2token_tgt[int(tgt)]: float(score)}
+                for tgt, score in tgts
+            ]
+
+        with open(path, "w", encoding="utf-8") as f:
+            for src, tgt in norm_translations.items():
+                tgt = [d for d in tgt if list(d.values())[0] >= limit]
+                tgt = {k: v for d in tgt for k, v in d.items()}
+                if tgt:
+                    f.write(dumps({src:tgt}, ensure_ascii=False)+"\n")
 
     @staticmethod
-    def save(lang1, lang2, savedir, token2x, token2y, x2token, y2token, x2ys, xfpm, yfpm, t1name, t2name):
+    def _dump_json(path, src_vocab, tgt_vocab, translations, src_lang, tgt_lang,
+            id2token_src, id2token_tgt, xfpm, yfpm, t1name=None, t2name=None):
+        """Helper to write bilingual dictionary JSON with tokens instead of IDs."""
+        norm_translations = {}
+        for src_id, tgts in translations.items():
+            if not tgts:
+                norm_translations[id2token_src[int(src_id)]] = []
+                continue
+            
+            norm_translations[id2token_src[int(src_id)]] = [
+                {id2token_tgt[int(tgt)]: float(score)}
+                for tgt, score in tgts
+            ]
 
-        def _dump_json(path, src_vocab, tgt_vocab, translations, src_lang, tgt_lang,
-                    id2token_src, id2token_tgt, xfpm, yfpm, t1name=t1name, t2name=t2name):
-            """Helper to write bilingual dictionary JSON with tokens instead of IDs."""
-            norm_translations = {}
-            for src_id, tgts in translations.items():
-                if not tgts:
-                    norm_translations[id2token_src[int(src_id)]] = []
-                    continue
-                
-                norm_translations[id2token_src[int(src_id)]] = [
-                    {id2token_tgt[int(tgt)]: float(score)}
-                    for tgt, score in tgts
-                ]
+        data = {
+            "src_lang": src_lang,
+            "tgt_lang": tgt_lang,
+            "src_tokenizer": t1name,
+            "tgt_tokenizer": t2name,
+            "src_vocab": src_vocab,
+            "tgt_vocab": tgt_vocab,
+            "src_fpm": xfpm,
+            "tgt_fpm": yfpm,    
+            "translations": norm_translations
+        }
+        with open(path, "w", encoding="utf-8") as f:
+            dump(data, f, ensure_ascii=False, indent=2)
 
-            data = {
-                "src_lang": src_lang,
-                "tgt_lang": tgt_lang,
-                "src_tokenizer": t1name,
-                "tgt_tokenizer": t2name,
-                "src_vocab": src_vocab,
-                "tgt_vocab": tgt_vocab,
-                "src_fpm": xfpm,
-                "tgt_fpm": yfpm,    
-                "translations": norm_translations
-            }
-            with open(path, "w", encoding="utf-8") as f:
-                dump(data, f, ensure_ascii=False, indent=2)
+    def save(self, savedir):
+        print("Saving...")
+        if not savedir:
+            savedir = get_savedir
+        makedirs(savedir, exist_ok=True)
 
-        _dump_json(
-            os.path.join(savedir, f"{lang1}-{lang2}.json"),
-            src_vocab=token2x,
-            tgt_vocab=token2y,
-            translations=x2ys,
-            src_lang=lang1,
-            tgt_lang=lang2,
-            id2token_src=x2token,
-            id2token_tgt=y2token,
-            xfpm=xfpm,
-            yfpm=yfpm,
-            t1name=t1name,
-            t2name=t2name
+        self._dump_json(
+            px.join(savedir, f"{self.lang1}-{self.lang2}.json"),
+            src_vocab=self.token2x,
+            tgt_vocab=self.token2y,
+            translations=self.x2ys,
+            src_lang=self.lang1,
+            tgt_lang=self.lang2,
+            id2token_src=self.x2token,
+            id2token_tgt=self.y2token,
+            xfpm=self.xfpm,
+            yfpm=self.yfpm,
+            t1name=self.t1name,
+            t2name=self.t2name
         )
+        print("Done!")
+
+    def save_mapping(self, savedir=None, limit=0.01):
+        print("Saving mapping...")
+        if not savedir:
+            savedir = get_savedir
+        makedirs(savedir, exist_ok=True)
+
+        self._dump_jsonl(
+            px.join(savedir, f"{self.lang1}-{self.lang2}.jsonl"),
+            translations=self.x2ys,
+            id2token_src=self.x2token,
+            id2token_tgt=self.y2token,
+            limit=limit
+        )
+        print("Done!")

@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
-import os
+from os import makedirs, path as px
 from time import time
-import re
+from re import compile as rcompile
 from typing import List
 
 from token2token.token2token import Token2token
@@ -55,7 +55,7 @@ class WordTokenizer:
     def __init__(self, lower: bool = True, trans: bool = True):
         self.lower = lower
         self.trans = trans
-        self.word_pattern = re.compile(r'[^\W\d_]+')
+        self.word_pattern = rcompile(r'[^\W\d_]+')
 
     def cyr2lat(self, text: str) -> str:
         return "".join(mapping.get(ch, ch) for ch in text)
@@ -126,31 +126,27 @@ class Word2word (Token2token):
             dataset.take(n_lines), lang1, lang2, n_lines, save_pmi, x2cnt, word2x, word2y
         )
 
-        t0 = time()
-        print("Step 5. Translation using CPE scores")
-
-        x2ys_cpe = rerank(x2xs, x2ys, rerank_width, n_translations)
-        print(f"Time taken for step 5: {time() - t0:.2f}s")
-
-        print("Saving...")
-        os.makedirs(savedir, exist_ok=True)
-        Word2word.save(lang1, lang2, savedir, word2x, word2y, x2word,
-                      y2word, x2ys_cpe, xfpm, yfpm, t1name, t2name)
-
         if save_pmi:
             print("Step 5-1. Translation using PMI scores")
-            subdir = os.path.join(savedir, "pmi")
-            os.makedirs(subdir, exist_ok=True)
+            subdir = px.join(savedir, "pmi")
+            makedirs(subdir, exist_ok=True)
             Nx = sum(seqlens1)
             Ny = sum(seqlens2)
             Nxy = sum([seqlen_x * seqlen_y
                        for seqlen_x, seqlen_y in zip(seqlens1, seqlens2)])
 
-            x2ys_pmi = get_trans_pmi(x2ys, x2cnt, y2cnt, Nxy, Nx, Ny,
+            x2ys = get_trans_pmi(x2ys, x2cnt, y2cnt, Nxy, Nx, Ny,
                                      rerank_width, n_translations)
+        else:
+            t0 = time()
+            print("Step 5. Translation using CPE scores")
+            x2ys = rerank(x2xs, x2ys, rerank_width, n_translations)
+            print(f"Time taken for step 5: {time() - t0:.2f}s")
 
-            Word2word.save(lang1, lang2, subdir, word2x, word2y, x2word,
-                           y2word, x2ys_pmi, xfpm, yfpm, t1name, t2name)
+        obj = cls(lang1, lang2, word2x, word2y, x2word, y2word, x2ys, xfpm, yfpm, t1name, t2name, savedir)
 
+        print("Saving...")
+        makedirs(savedir, exist_ok=True)
+        obj.save(savedir)
         print("Done!")
-        return cls(lang1, lang2, word2x, word2y, x2word, y2word, x2ys_cpe, xfpm, yfpm, savedir)
+        return obj

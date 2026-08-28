@@ -153,4 +153,4 @@ class Word2word (Token2token):
                            y2word, x2ys_pmi, xfpm, yfpm, t1name, t2name)
 
         print("Done!")
-        return cls(lang1, lang2, word2x, y2word, x2ys_cpe, path=savedir)
+        return cls(lang1, lang2, word2x, word2y, x2word, y2word, x2ys_cpe, xfpm, yfpm, savedir)

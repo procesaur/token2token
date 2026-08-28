@@ -189,7 +189,7 @@ class Token2token:
                             y2token, x2ys_pmi, xfpm, yfpm, t1name, t2name)
 
         print("Done!")
-        return cls(lang1, lang2, token2x, token2y, x2token, y2token, x2ys_cpe, xfpm, yfpm)
+        return cls(lang1, lang2, token2x, token2y, x2token, y2token, x2ys_cpe, xfpm, yfpm, savedir)
 
     @staticmethod
     def save(lang1, lang2, savedir, token2x, token2y, x2token, y2token, x2ys, xfpm, yfpm, t1name, t2name):

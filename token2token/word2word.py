@@ -133,6 +133,7 @@ class Word2word (Token2token):
         print(f"Time taken for step 5: {time() - t0:.2f}s")
 
         print("Saving...")
+        os.makedirs(savedir, exist_ok=True)
         Word2word.save(lang1, lang2, savedir, word2x, word2y, x2word,
                       y2word, x2ys_cpe, xfpm, yfpm, t1name, t2name)
 
@@ -147,11 +148,9 @@ class Word2word (Token2token):
 
             x2ys_pmi = get_trans_pmi(x2ys, x2cnt, y2cnt, Nxy, Nx, Ny,
                                      rerank_width, n_translations)
-            #y2xs_pmi = get_trans_pmi(y2xs, y2cnt, x2cnt, Nxy, Ny, Nx,
-            #                         rerank_width, n_translations)
 
             Word2word.save(lang1, lang2, subdir, word2x, word2y, x2word,
                            y2word, x2ys_pmi, xfpm, yfpm, t1name, t2name)
 
         print("Done!")
-        return cls(lang1, lang2, word2x, y2word, x2ys_cpe)
+        return cls(lang1, lang2, word2x, y2word, x2ys_cpe, path=savedir)

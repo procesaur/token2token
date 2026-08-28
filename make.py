@@ -92,9 +92,9 @@ def test():
     en2fr = Token2token.make("en", "fr", "Qwen/Qwen3.5-0.8B", "Qwen/Qwen3.5-0.8B", n_lines=1000000)
     print(en2fr("Ġlives"))
 
-    my_srhr = Word2word.make("sr", "hr", n_lines=1000000)
+    my_srhr = Word2word.make("sr", "hr", n_lines=1000, savedir="ttt")
     print(my_srhr("jabuka"))
 
 if __name__ == "__main__":
-    test()
-    #main()
+    # test()
+    main()

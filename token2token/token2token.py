@@ -203,7 +203,7 @@ class Token2token:
                 tgt = [d for d in tgt if list(d.values())[0] >= limit]
                 tgt = {k: v for d in tgt for k, v in d.items()}
                 if tgt:
-                    f.write(dumps({src:tgt}, ensure_ascii=False)+"\n")
+                    f.write(dumps({"word": src, "translations":tgt}, ensure_ascii=False)+"\n")
 
     @staticmethod
     def _dump_json(path, src_vocab, tgt_vocab, translations, src_lang, tgt_lang,

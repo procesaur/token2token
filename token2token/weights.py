@@ -324,11 +324,13 @@ def model_transform(
 
             # 2. Update Output Weights: Length-weighted average
             if output_weights is not None and orig_output is not None:
-                output_weights[target_id] = new_input_vec
+                new_output_vec = torch.matmul(weights, orig_output[source_ids])
+                output_weights[target_id] = new_output_vec
 
             # 3. Update Output Bias (if present): Length-weighted average
             if output_bias is not None and orig_bias is not None:
-                output_bias[target_id] = new_input_vec
+                new_bias_val = torch.sum(weights * orig_bias[source_ids])
+                output_bias[target_id] = new_bias_val
 
     # Run verification tests and save finalized model & metadata
     finalize_and_save_model(
